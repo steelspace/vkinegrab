@@ -2,8 +2,10 @@ using HtmlAgilityPack;
 using System.Net;
 using System.Text.RegularExpressions;
 using vkinegrab.Models;
+using vkinegrab.Services.Imdb;
+using vkinegrab.Services.Tmdb;
 
-namespace vkinegrab.Services;
+namespace vkinegrab.Services.Csfd;
 
 public class CsfdScraper
 {

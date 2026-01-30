@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
-using vkinegrab.Services;
+using vkinegrab.Services.Csfd;
 
 namespace vkinegrab;
 

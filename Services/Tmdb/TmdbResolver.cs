@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using vkinegrab.Models;
 
-namespace vkinegrab.Services;
+namespace vkinegrab.Services.Tmdb;
 
 internal sealed class TmdbResolver
 {

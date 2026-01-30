@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using vkinegrab.Services;
+using vkinegrab.Services.Csfd;
 
 class Program
 {

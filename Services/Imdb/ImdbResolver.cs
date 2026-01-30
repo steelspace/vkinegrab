@@ -1,10 +1,9 @@
 using HtmlAgilityPack;
 using System.Text.RegularExpressions;
 using vkinegrab.Models;
-using vkinegrab.Services.Imdb;
 using vkinegrab.Services.Imdb.Models;
 
-namespace vkinegrab.Services;
+namespace vkinegrab.Services.Imdb;
 
 internal sealed class ImdbResolver
 {

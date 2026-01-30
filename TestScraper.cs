@@ -24,30 +24,43 @@ public class TestScraper
 
     public async Task<List<int>> GetMovieIdsFromTvSchedule()
     {
-        Console.WriteLine("Fetching movie IDs from CSFD TV schedule...");
-        var url = "https://www.csfd.cz/televize/";
-        var html = await client.GetStringAsync(url);
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-
+        Console.WriteLine("Fetching movie IDs from CSFD TV schedule (days 1-3)...");
         var movieIds = new HashSet<int>();
         
-        // Look for links to /film/{id}
-        var filmLinks = doc.DocumentNode.SelectNodes("//a[contains(@href, '/film/')]");
-        if (filmLinks != null)
+        // Fetch from 3 consecutive days
+        for (int day = 1; day <= 3; day++)
         {
-            foreach (var link in filmLinks)
+            var url = $"https://www.csfd.cz/televize/?day={day}";
+            Console.WriteLine($"  Fetching day {day}: {url}");
+            
+            try
             {
-                var href = link.GetAttributeValue("href", "");
-                var match = Regex.Match(href, @"/film/(\d+)");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out var id))
+                var html = await client.GetStringAsync(url);
+                var doc = new HtmlDocument();
+                doc.LoadHtml(html);
+
+                // Look for links to /film/{id}
+                var filmLinks = doc.DocumentNode.SelectNodes("//a[contains(@href, '/film/')]");
+                if (filmLinks != null)
                 {
-                    movieIds.Add(id);
+                    foreach (var link in filmLinks)
+                    {
+                        var href = link.GetAttributeValue("href", "");
+                        var match = Regex.Match(href, @"/film/(\d+)");
+                        if (match.Success && int.TryParse(match.Groups[1].Value, out var id))
+                        {
+                            movieIds.Add(id);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  Error fetching day {day}: {ex.Message}");
             }
         }
 
-        Console.WriteLine($"Found {movieIds.Count} unique movie IDs");
+        Console.WriteLine($"Found {movieIds.Count} unique movie IDs across all days");
         return movieIds.OrderBy(x => x).ToList();
     }
 
@@ -107,7 +120,7 @@ public class TestScraper
         return result;
     }
 
-    public async Task RunTests(int maxMovies = 10)
+    public async Task RunTests(int maxMovies = 100)
     {
         var movieIds = await GetMovieIdsFromTvSchedule();
         var testMovies = movieIds.Take(maxMovies).ToList();
@@ -186,7 +199,7 @@ public class TestScraper
             return;
         }
 
-        var maxMovies = 10;
+        var maxMovies = 100;
         if (args.Length > 0 && int.TryParse(args[0], out var argMax) && argMax > 0)
         {
             maxMovies = argMax;

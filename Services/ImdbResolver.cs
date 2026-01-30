@@ -53,6 +53,8 @@ internal sealed class ImdbResolver
             return null;
         }
 
+
+
         // Try with year first
         var terms = new List<string> { title };
         if (!string.IsNullOrWhiteSpace(movie.Year))
@@ -109,6 +111,11 @@ internal sealed class ImdbResolver
         searchDoc.LoadHtml(searchHtml);
 
         var results = ExtractImdbResults(searchDoc).ToList();
+        Console.WriteLine($"    Found {results.Count} results");
+        foreach (var r in results.Take(3))
+        {
+            Console.WriteLine($"      - {r.Id}: '{r.Title}' ({r.Year})");
+        }
         
         if (results.Count == 0)
         {
@@ -437,14 +444,23 @@ internal sealed class ImdbResolver
         var metadata = await FetchTitleMetadataAsync(imdbId);
         if (metadata == null)
         {
+            Console.WriteLine($"      Validation: No metadata found for {imdbId}, accepting by default");
             return true;
         }
 
         var yearValid = IsYearValid(movie.Year, metadata.Year);
         var directorsValid = AreDirectorsValid(movie.Directors, metadata.Directors);
 
+
+
         if (hasYear && hasDirectors)
         {
+            // If directors don't match but year does, accept it (IMDb may not have director info from HTML fallback)
+            if (yearValid && !directorsValid && metadata.Directors.Count == 0)
+            {
+
+                return true;
+            }
             return yearValid && directorsValid;
         }
 
@@ -612,6 +628,20 @@ internal sealed class ImdbResolver
             }
         }
 
+        // Fallback: Try to extract year from HTML title tag (e.g., "Title (1944) - IMDb")
+        var titleNode = doc.DocumentNode.SelectSingleNode("//title");
+        if (titleNode != null)
+        {
+            var titleText = WebUtility.HtmlDecode(titleNode.InnerText);
+            var yearMatch = System.Text.RegularExpressions.Regex.Match(titleText, @"\((\d{4})\)");
+            if (yearMatch.Success)
+            {
+                var year = yearMatch.Groups[1].Value;
+                // Note: Directors list will be empty, but year validation will work
+                return new ImdbTitleMetadata(year, new List<string>());
+            }
+        }
+
         return null;
     }
 
@@ -638,6 +668,13 @@ internal sealed class ImdbResolver
                     var year = ExtractYearFromElement(element);
                     var directors = ExtractDirectorsFromElement(element);
 
+                    // If JSON-LD doesn't have year, return false so HTML fallback can be used
+                    if (year == null)
+                    {
+                        metadata = default!;
+                        return false;
+                    }
+                    
                     metadata = new ImdbTitleMetadata(year, directors);
                     return true;
                 }
@@ -652,7 +689,8 @@ internal sealed class ImdbResolver
     {
         if (element.TryGetProperty("datePublished", out var datePublished) && datePublished.ValueKind == JsonValueKind.String)
         {
-            var year = ExtractYearDigits(datePublished.GetString());
+            var dateStr = datePublished.GetString();
+            var year = ExtractYearDigits(dateStr);
             if (!string.IsNullOrEmpty(year))
             {
                 return year;
@@ -661,7 +699,8 @@ internal sealed class ImdbResolver
 
         if (element.TryGetProperty("releaseDate", out var releaseDate) && releaseDate.ValueKind == JsonValueKind.String)
         {
-            var year = ExtractYearDigits(releaseDate.GetString());
+            var dateStr = releaseDate.GetString();
+            var year = ExtractYearDigits(dateStr);
             if (!string.IsNullOrEmpty(year))
             {
                 return year;
@@ -674,7 +713,8 @@ internal sealed class ImdbResolver
             {
                 if (ev.ValueKind == JsonValueKind.Object && ev.TryGetProperty("startDate", out var startDate) && startDate.ValueKind == JsonValueKind.String)
                 {
-                    var year = ExtractYearDigits(startDate.GetString());
+                    var dateStr = startDate.GetString();
+                    var year = ExtractYearDigits(dateStr);
                     if (!string.IsNullOrEmpty(year))
                     {
                         return year;

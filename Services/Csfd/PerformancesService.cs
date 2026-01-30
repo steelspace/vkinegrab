@@ -33,7 +33,7 @@ public class PerformancesService
         string period = "today",
         CancellationToken cancellationToken = default)
     {
-        pageUri ??= new Uri(baseUri, "/kino/1-praha/");
+        pageUri ??= new Uri(baseUri, "/kino/1-praha/?period=all");
         var requestUri = AppendPeriod(pageUri, period);
         var html = await FetchHtmlAsync(requestUri, cancellationToken).ConfigureAwait(false);
         return ParseCinemas(html, requestUri);

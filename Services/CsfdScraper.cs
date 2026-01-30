@@ -165,7 +165,12 @@ public class CsfdScraper
     private string? Clean(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
-        return HtmlEntity.DeEntitize(input).Trim();
+        var cleaned = HtmlEntity.DeEntitize(input).Trim();
+        
+        // Remove trailing text in parentheses (e.g., "(oficiální text distributora)")
+        cleaned = Regex.Replace(cleaned, @"\s*\([^)]*\)\s*$", string.Empty).Trim();
+        
+        return cleaned;
     }
 
     private int ExtractIdFromUrl(string url)

@@ -114,7 +114,7 @@ internal sealed class ImdbResolver
         Console.WriteLine($"    Found {results.Count} results");
         foreach (var r in results.Take(3))
         {
-            Console.WriteLine($"      - {r.Id}: '{r.Title}' ({r.Year})");
+            Console.WriteLine($"      - {r.Id}: '{r.Title}' ({r.Year}) RawText: '{r.RawText}'");
         }
         
         if (results.Count == 0)
@@ -286,17 +286,41 @@ internal sealed class ImdbResolver
             return true;
         }
 
-        if (!string.IsNullOrWhiteSpace(result.Year) && result.Year == movieYear)
+        if (!string.IsNullOrWhiteSpace(result.Year))
         {
-            return true;
+            if (result.Year == movieYear)
+            {
+                return true;
+            }
+            
+            // Allow ±1 year tolerance (for TV episodes, different release regions, etc.)
+            if (int.TryParse(result.Year, out var resultYearInt) && 
+                int.TryParse(movieYear, out var movieYearInt) &&
+                Math.Abs(resultYearInt - movieYearInt) <= 1)
+            {
+                return true;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(result.RawText))
         {
-            var match = Regex.Match(result.RawText, @"\b(\d{4})\b");
-            if (match.Success && match.Groups[1].Value == movieYear)
+            // Check all 4-digit years in RawText (important for TV episodes where series year != episode year)
+            var matches = Regex.Matches(result.RawText, @"\b(\d{4})\b");
+            foreach (Match match in matches)
             {
-                return true;
+                var yearStr = match.Groups[1].Value;
+                if (yearStr == movieYear)
+                {
+                    return true;
+                }
+                
+                // Also apply ±1 year tolerance to RawText years
+                if (int.TryParse(yearStr, out var rawYearInt) && 
+                    int.TryParse(movieYear, out var movieYearInt2) &&
+                    Math.Abs(rawYearInt - movieYearInt2) <= 1)
+                {
+                    return true;
+                }
             }
         }
 

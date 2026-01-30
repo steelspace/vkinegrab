@@ -24,11 +24,11 @@ public class TestScraper
 
     public async Task<List<int>> GetMovieIdsFromTvSchedule()
     {
-        Console.WriteLine("Fetching movie IDs from CSFD TV schedule (days 1-3)...");
+        Console.WriteLine("Fetching movie IDs from CSFD TV schedule (days 1-10)...");
         var movieIds = new HashSet<int>();
         
-        // Fetch from 3 consecutive days
-        for (int day = 1; day <= 3; day++)
+        // Fetch from 10 consecutive days
+        for (int day = 1; day <= 10; day++)
         {
             var url = $"https://www.csfd.cz/televize/?day={day}";
             Console.WriteLine($"  Fetching day {day}: {url}");

@@ -7,18 +7,18 @@ namespace vkinegrab.Services;
 
 public class CsfdScraper
 {
-    private static readonly HttpClient _client;
-    private static readonly ImdbResolver _imdbResolver;
+    private static readonly HttpClient client;
+    private static readonly ImdbResolver imdbResolver;
 
     static CsfdScraper()
     {
         // 1. Setup HttpClient with realistic headers (Crucial for CSFD)
         var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        _client = new HttpClient(handler);
-        _client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        _client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        _client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
-        _imdbResolver = new ImdbResolver(_client);
+        client = new HttpClient(handler);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+        imdbResolver = new ImdbResolver(client);
     }
 
     public async Task<CsfdMovie> ScrapeMovieAsync(int movieId)
@@ -31,7 +31,7 @@ public class CsfdScraper
     public async Task<CsfdMovie> ScrapeMovieAsync(string url)
     {
         Console.WriteLine($"Downloading: {url}");
-        var html = await _client.GetStringAsync(url);
+        var html = await client.GetStringAsync(url);
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -128,7 +128,7 @@ public class CsfdScraper
             }
         }
 
-        movie.ImdbId = await _imdbResolver.ResolveImdbIdAsync(doc, movie);
+        movie.ImdbId = await imdbResolver.ResolveImdbIdAsync(doc, movie);
 
         return movie;
     }

@@ -10,11 +10,11 @@ namespace vkinegrab.Services;
 
 internal sealed class ImdbResolver
 {
-    private readonly HttpClient _client;
+    private readonly HttpClient client;
 
     public ImdbResolver(HttpClient client)
     {
-        _client = client;
+        this.client = client;
     }
 
     public async Task<string?> ResolveImdbIdAsync(HtmlDocument csfdDoc, CsfdMovie movie)
@@ -70,7 +70,7 @@ internal sealed class ImdbResolver
         string searchHtml;
         try
         {
-            searchHtml = await _client.GetStringAsync(searchUrl);
+            searchHtml = await client.GetStringAsync(searchUrl);
         }
         catch
         {
@@ -504,7 +504,7 @@ internal sealed class ImdbResolver
         string html;
         try
         {
-            html = await _client.GetStringAsync(titleUrl);
+            html = await client.GetStringAsync(titleUrl);
         }
         catch
         {

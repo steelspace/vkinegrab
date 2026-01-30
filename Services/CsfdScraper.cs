@@ -35,14 +35,14 @@ public class CsfdScraper
         tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
     }
 
-    public async Task<CsfdMovie> ScrapeMovieAsync(int movieId)
+    public async Task<CsfdMovie> ScrapeMovie(int movieId)
     {
         // CSFD handles numeric IDs by redirecting to the full URL (usually), or just serving the content.
         // We can just query /film/ID
-        return await ScrapeMovieAsync($"https://www.csfd.cz/film/{movieId}");
+        return await ScrapeMovie($"https://www.csfd.cz/film/{movieId}");
     }
 
-    public async Task<CsfdMovie> ScrapeMovieAsync(string url)
+    public async Task<CsfdMovie> ScrapeMovie(string url)
     {
         Console.WriteLine($"Downloading: {url}");
         var html = await client.GetStringAsync(url);
@@ -142,12 +142,12 @@ public class CsfdScraper
             }
         }
 
-        movie.ImdbId = await imdbResolver.ResolveImdbIdAsync(doc, movie);
+        movie.ImdbId = await imdbResolver.ResolveImdbId(doc, movie);
 
         return movie;
     }
 
-    public async Task<TmdbMovie?> ResolveTmdbAsync(CsfdMovie movie)
+    public async Task<TmdbMovie?> ResolveTmdb(CsfdMovie movie)
     {
         return await tmdbResolver.ResolveTmdbMovie(movie);
     }

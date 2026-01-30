@@ -15,7 +15,7 @@ internal sealed class ImdbSearchService
         this.client = client;
     }
 
-    public async Task<List<ImdbSearchResult>> SearchAsync(string query, string? titleType = null)
+    public async Task<List<ImdbSearchResult>> Search(string query, string? titleType = null)
     {
         var searchUrl = titleType != null
             ? $"https://www.imdb.com/find/?q={Uri.EscapeDataString(query)}&s=tt&ttype={titleType}"

@@ -73,8 +73,8 @@ public class TestScraper
             Console.WriteLine($"\nTesting Movie ID: {movieId}");
             Console.WriteLine("----------------------------------------");
             
-            var movie = await scraper.ScrapeMovieAsync(movieId);
-            var tmdbMovie = await scraper.ResolveTmdbAsync(movie);
+            var movie = await scraper.ScrapeMovie(movieId);
+            var tmdbMovie = await scraper.ResolveTmdb(movie);
 
             // Validate CSFD properties
             result.HasTitle = !string.IsNullOrWhiteSpace(movie.Title);

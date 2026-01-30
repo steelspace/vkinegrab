@@ -19,7 +19,7 @@ internal sealed class ImdbResolver
         validator = new ImdbMetadataValidator(client, titleMatcher);
     }
 
-    public async Task<string?> ResolveImdbIdAsync(HtmlDocument csfdDoc, CsfdMovie movie)
+    public async Task<string?> ResolveImdbId(HtmlDocument csfdDoc, CsfdMovie movie)
     {
         var directLink = csfdDoc.DocumentNode.SelectSingleNode("//a[contains(@href, 'imdb.com/title/tt')]");
         if (directLink != null)
@@ -29,7 +29,7 @@ internal sealed class ImdbResolver
             if (match.Success)
             {
                 var imdbId = match.Value;
-                if (await validator.ValidateAsync(imdbId, movie))
+                if (await validator.Validate(imdbId, movie))
                 {
                     return imdbId;
                 }
@@ -38,7 +38,7 @@ internal sealed class ImdbResolver
 
         foreach (var candidateTitle in titleMatcher.GetSearchTitles(movie))
         {
-            var imdbId = await SearchImdbForTitleAsync(candidateTitle, movie);
+            var imdbId = await SearchImdbForTitle(candidateTitle, movie);
             if (!string.IsNullOrEmpty(imdbId))
             {
                 return imdbId;
@@ -48,15 +48,15 @@ internal sealed class ImdbResolver
         return null;
     }
 
-    private async Task<string?> SearchImdbForTitleAsync(string title, CsfdMovie movie)
+    private async Task<string?> SearchImdbForTitle(string title, CsfdMovie movie)
     {
         Console.WriteLine($"  Searching IMDb for: '{title}'");
-        return await TryImdbSearchAsync(title, movie, null);
+        return await TryImdbSearch(title, movie, null);
     }
 
-    private async Task<string?> TryImdbSearchAsync(string query, CsfdMovie movie, string? titleType)
+    private async Task<string?> TryImdbSearch(string query, CsfdMovie movie, string? titleType)
     {
-        var results = await searchService.SearchAsync(query, titleType);
+        var results = await searchService.Search(query, titleType);
         Console.WriteLine($"    Found {results.Count} results");
         foreach (var r in results.Take(3))
         {
@@ -97,7 +97,7 @@ internal sealed class ImdbResolver
 
         foreach (var candidate in prioritized)
         {
-            if (await validator.ValidateAsync(candidate.Id, movie))
+            if (await validator.Validate(candidate.Id, movie))
             {
                 return candidate.Id;
             }
@@ -105,7 +105,7 @@ internal sealed class ImdbResolver
 
         foreach (var candidate in secondary)
         {
-            if (await validator.ValidateAsync(candidate.Id, movie))
+            if (await validator.Validate(candidate.Id, movie))
             {
                 return candidate.Id;
             }

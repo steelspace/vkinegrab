@@ -44,8 +44,8 @@ class Program
         
         try 
         {
-            var movie = await scraper.ScrapeMovieAsync(movieId);
-            var tmdbMovie = await scraper.ResolveTmdbAsync(movie);
+            var movie = await scraper.ScrapeMovie(movieId);
+            var tmdbMovie = await scraper.ResolveTmdb(movie);
     
             Console.WriteLine("--------------------------------------------------");
             Console.WriteLine($"CSFD SOURCE ID: {movieId}");

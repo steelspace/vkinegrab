@@ -18,7 +18,7 @@ internal sealed class ImdbMetadataValidator
         this.matcher = matcher;
     }
 
-    public async Task<bool> ValidateAsync(string imdbId, CsfdMovie movie)
+    public async Task<bool> Validate(string imdbId, CsfdMovie movie)
     {
         var hasYear = !string.IsNullOrWhiteSpace(movie.Year);
         var hasDirectors = movie.Directors != null && movie.Directors.Count > 0;
@@ -28,7 +28,7 @@ internal sealed class ImdbMetadataValidator
             return true;
         }
 
-        var metadata = await FetchTitleMetadataAsync(imdbId);
+        var metadata = await FetchTitleMetadata(imdbId);
         if (metadata == null)
         {
             Console.WriteLine($"      Validation: No metadata found for {imdbId}, accepting by default");
@@ -138,7 +138,7 @@ internal sealed class ImdbMetadataValidator
         return true;
     }
 
-    private async Task<ImdbTitleMetadata?> FetchTitleMetadataAsync(string imdbId)
+    private async Task<ImdbTitleMetadata?> FetchTitleMetadata(string imdbId)
     {
         var titleUrl = $"https://www.imdb.com/title/{imdbId}/";
 

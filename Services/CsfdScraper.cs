@@ -8,7 +8,9 @@ namespace vkinegrab.Services;
 public class CsfdScraper
 {
     private static readonly HttpClient client;
+    private static readonly HttpClient tmdbClient;
     private static readonly ImdbResolver imdbResolver;
+    private readonly TmdbResolver tmdbResolver;
 
     static CsfdScraper()
     {
@@ -19,6 +21,18 @@ public class CsfdScraper
         client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
         client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
         imdbResolver = new ImdbResolver(client);
+        
+        // Setup separate HttpClient for TMDB API
+        tmdbClient = new HttpClient();
+    }
+
+    public CsfdScraper(string? tmdbBearerToken = null)
+    {
+        if (string.IsNullOrWhiteSpace(tmdbBearerToken))
+        {
+            throw new ArgumentException("TMDB Bearer Token is required. Set it using: dotnet user-secrets set \"Tmdb:BearerToken\" \"your-token\"", nameof(tmdbBearerToken));
+        }
+        tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
     }
 
     public async Task<CsfdMovie> ScrapeMovieAsync(int movieId)
@@ -40,7 +54,7 @@ public class CsfdScraper
         var mainNode = doc.DocumentNode;
 
         // 2. Title - Text inside the H1 usually contains the title (sometimes followed by (year))
-        var h1Node = mainNode.SelectSingleNode("//header[@class='film-header']//h1");
+        var h1Node = mainNode.SelectSingleNode("//h1");
         movie.Title = Clean(h1Node?.InnerText);
         if (!string.IsNullOrEmpty(movie.Title))
         {
@@ -131,6 +145,11 @@ public class CsfdScraper
         movie.ImdbId = await imdbResolver.ResolveImdbIdAsync(doc, movie);
 
         return movie;
+    }
+
+    public async Task<TmdbMovie?> ResolveTmdbAsync(CsfdMovie movie)
+    {
+        return await tmdbResolver.ResolveTmdbMovie(movie);
     }
 
     // Helper to extract list of people (actors, directors) based on the label (e.g. "Režie:", "Hrají:")

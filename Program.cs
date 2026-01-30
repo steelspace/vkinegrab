@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,12 @@ class Program
             return;
         }
 
+        if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreCase))
+        {
+            await PrintCinemaSchedule(args);
+            return;
+        }
+
         var configuration = new ConfigurationBuilder()
             .AddUserSecrets<Program>()
             .Build();
@@ -27,6 +34,16 @@ class Program
             Console.WriteLine("ERROR: TMDB Bearer Token not found!");
             Console.WriteLine("Please set it using:");
             Console.WriteLine("  dotnet user-secrets set \"Tmdb:BearerToken\" \"your-bearer-token-here\"");
+            return;
+        }
+
+        if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
+        {
+            var tester = new vkinegrab.TestScraper(tmdbBearerToken);
+            var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
+            var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
+            var maxMovies = args.Length > 3 && int.TryParse(args[3], out var parsedMax) && parsedMax > 0 ? parsedMax : 5;
+            await tester.RunCinemaShowtimes(period, pageUrl, maxMovies);
             return;
         }
 
@@ -98,5 +115,61 @@ class Program
             Console.WriteLine($"Error occurred: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
         }
+    }
+
+    private static async Task PrintCinemaSchedule(string[] args)
+    {
+        var remainingArgs = args.Skip(1).ToArray();
+        var period = remainingArgs.Length > 0 && !string.IsNullOrWhiteSpace(remainingArgs[0])
+            ? remainingArgs[0]
+            : "today";
+
+        Uri? pageUri = null;
+        if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
+        {
+            if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute))
+            {
+                pageUri = absolute;
+            }
+            else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
+            {
+                pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+            }
+        }
+
+        var performancesService = new PerformancesService();
+        var cinemas = await performancesService.GetPerformancesAsync(pageUri, period);
+
+        Console.WriteLine($"Fetched {cinemas.Count} cinemas for period '{period}'.");
+        Console.WriteLine("----------------------------------------");
+
+        var culture = CultureInfo.InvariantCulture;
+        foreach (var cinema in cinemas)
+        {
+            var scheduleDate = cinema.ScheduleDate?.ToString("yyyy-MM-dd", culture) ?? "N/A";
+            Console.WriteLine($"{cinema.City ?? "?"} - {cinema.Name ?? "Unknown"} ({scheduleDate})");
+
+            foreach (var performance in cinema.Performances.OrderBy(p => p.MovieTitle).Take(5))
+            {
+                var badges = performance.Badges.Any()
+                    ? " [" + string.Join(", ", performance.Badges.Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)) + "]"
+                    : string.Empty;
+
+                var showtimes = string.Join(", ", performance.Showtimes
+                    .OrderBy(s => s.StartAt)
+                    .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty)));
+
+                if (string.IsNullOrWhiteSpace(showtimes))
+                {
+                    continue;
+                }
+
+                Console.WriteLine($"  - {performance.MovieTitle}{badges}: {showtimes}");
+            }
+
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("(*) indicates an active ticket link.");
     }
 }

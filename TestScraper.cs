@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
+using System.Globalization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
+using vkinegrab.Models;
 using vkinegrab.Services.Csfd;
 
 namespace vkinegrab;
@@ -183,6 +180,142 @@ public class TestScraper
         }
     }
 
+    public async Task RunCinemaShowtimes(string period = "today", string? pageUrl = null, int maxMovies = 5)
+    {
+        Uri? requestUri = null;
+        if (!string.IsNullOrWhiteSpace(pageUrl))
+        {
+            if (Uri.TryCreate(pageUrl, UriKind.Absolute, out var absolute))
+            {
+                requestUri = absolute;
+            }
+            else
+            {
+                try
+                {
+                    requestUri = new Uri(new Uri("https://www.csfd.cz/"), pageUrl);
+                }
+                catch (UriFormatException)
+                {
+                    Console.WriteLine($"Ignoring invalid page URL '{pageUrl}'.");
+                }
+            }
+        }
+
+        Console.WriteLine($"Fetching cinema schedule for period '{period}'{(requestUri != null ? $" ({requestUri})" : string.Empty)}...");
+
+        IReadOnlyList<CsfdCinema> cinemas;
+        try
+        {
+            var service = new PerformancesService();
+            cinemas = await service.GetPerformancesAsync(requestUri, period);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to download cinema schedule: {ex.Message}");
+            return;
+        }
+
+        if (cinemas.Count == 0)
+        {
+            Console.WriteLine("No cinemas returned.");
+            return;
+        }
+
+        var entries = cinemas
+            .SelectMany(cinema => cinema.Performances.Select(performance => new { cinema, performance }))
+            .Where(x => x.performance.MovieId > 0 && x.performance.Showtimes.Count > 0)
+            .ToList();
+
+        if (entries.Count == 0)
+        {
+            Console.WriteLine("No showtimes detected.");
+            return;
+        }
+
+        var movieGroups = entries
+            .GroupBy(x => x.performance.MovieId)
+            .OrderByDescending(group => group.Sum(item => item.performance.Showtimes.Count))
+            .Take(Math.Max(1, maxMovies))
+            .ToList();
+
+        var culture = CultureInfo.InvariantCulture;
+
+        foreach (var group in movieGroups)
+        {
+            CsfdMovie? movie = null;
+            try
+            {
+                movie = await scraper.ScrapeMovie(group.Key);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Movie {group.Key}: failed to download metadata ({ex.Message}).");
+            }
+
+            var movieTitle = movie?.Title ?? $"Film #{group.Key}";
+            var movieYear = string.IsNullOrWhiteSpace(movie?.Year) ? string.Empty : $" ({movie!.Year})";
+
+            var cinemaGroups = group
+                .GroupBy(x => x.cinema.Id)
+                .Select(g => new
+                {
+                    Cinema = g.First().cinema,
+                    Performances = g.Select(item => item.performance).ToList()
+                })
+                .OrderBy(g => g.Cinema.City ?? string.Empty)
+                .ThenBy(g => g.Cinema.Name ?? string.Empty);
+
+            var theaterSummaries = new List<string>();
+            foreach (var cinemaGroup in cinemaGroups)
+            {
+                var segments = new List<string>();
+                foreach (var performance in cinemaGroup.Performances)
+                {
+                    var hallLabels = performance.Badges
+                        .Where(b => b.Kind == CsfdBadgeKind.Hall)
+                        .Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)
+                        .Where(label => !string.IsNullOrWhiteSpace(label))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var showtimes = performance.Showtimes
+                        .OrderBy(s => s.StartAt)
+                        .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty))
+                        .Distinct()
+                        .ToList();
+
+                    if (showtimes.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var prefix = hallLabels.Count > 0 ? string.Join("/", hallLabels) + ": " : string.Empty;
+                    segments.Add(prefix + string.Join(", ", showtimes));
+                }
+
+                if (segments.Count == 0)
+                {
+                    continue;
+                }
+
+                var theaterLabel = $"{cinemaGroup.Cinema.City ?? "?"} - {cinemaGroup.Cinema.Name ?? "Unknown"}";
+                theaterSummaries.Add($"{theaterLabel}: {string.Join(" | ", segments)}");
+            }
+
+            if (theaterSummaries.Count == 0)
+            {
+                continue;
+            }
+
+            Console.WriteLine($"Movie: {movieTitle}{movieYear}");
+            Console.WriteLine($"  Theaters: {string.Join("; ", theaterSummaries)}");
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("(*) indicates an active ticket link.");
+    }
+
     public static async Task Run(string[] args)
     {
         var configuration = new ConfigurationBuilder()
@@ -199,13 +332,22 @@ public class TestScraper
             return;
         }
 
+        var tester = new TestScraper(tmdbBearerToken);
+        if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
+        {
+            var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
+            var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
+            var limit = args.Length > 3 && int.TryParse(args[3], out var parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+            await tester.RunCinemaShowtimes(period, pageUrl, limit);
+            return;
+        }
+
         var maxMovies = 100;
         if (args.Length > 0 && int.TryParse(args[0], out var argMax) && argMax > 0)
         {
             maxMovies = argMax;
         }
 
-        var tester = new TestScraper(tmdbBearerToken);
         await tester.RunTests(maxMovies);
     }
 }

@@ -8,6 +8,14 @@ class Program
 {
     static async Task Main(string[] args)
     {
+        // Check if running tests
+        if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
+        {
+            var testArgs = args.Skip(1).ToArray();
+            await vkinegrab.TestScraper.Run(testArgs);
+            return;
+        }
+
         var configuration = new ConfigurationBuilder()
             .AddUserSecrets<Program>()
             .Build();

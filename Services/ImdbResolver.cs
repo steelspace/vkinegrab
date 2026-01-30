@@ -53,6 +53,7 @@ internal sealed class ImdbResolver
             return null;
         }
 
+        // Try with year first
         var terms = new List<string> { title };
         if (!string.IsNullOrWhiteSpace(movie.Year))
         {
@@ -65,7 +66,34 @@ internal sealed class ImdbResolver
             return null;
         }
 
-        var searchUrl = $"https://www.imdb.com/find/?s=tt&ttype=ft&q={Uri.EscapeDataString(query)}";
+        // Try feature film search first
+        var result = await TryImdbSearch(query, movie, "ft");
+        if (result != null)
+        {
+            return result;
+        }
+
+        // Fallback: search all titles (includes TV movies, documentaries, etc.)
+        result = await TryImdbSearch(query, movie, null);
+        if (result != null)
+        {
+            return result;
+        }
+
+        // Last resort: try without year
+        if (!string.IsNullOrWhiteSpace(movie.Year))
+        {
+            return await TryImdbSearch(title, movie, null);
+        }
+
+        return null;
+    }
+
+    private async Task<string?> TryImdbSearch(string query, CsfdMovie movie, string? titleType)
+    {
+        var searchUrl = titleType != null
+            ? $"https://www.imdb.com/find/?q={Uri.EscapeDataString(query)}&s=tt&ttype={titleType}"
+            : $"https://www.imdb.com/find/?q={Uri.EscapeDataString(query)}";
 
         string searchHtml;
         try
@@ -81,12 +109,18 @@ internal sealed class ImdbResolver
         searchDoc.LoadHtml(searchHtml);
 
         var results = ExtractImdbResults(searchDoc).ToList();
+        
         if (results.Count == 0)
         {
             return null;
         }
 
-        var normalizedTargets = BuildNormalizedTitleSet(movie, title);
+        // Extract title from query (remove year if present)
+        var queryTitle = query.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Where(part => !Regex.IsMatch(part, @"^\d{4}$"))
+                              .Aggregate("", (acc, part) => acc + " " + part).Trim();
+
+        var normalizedTargets = BuildNormalizedTitleSet(movie, queryTitle);
         var prioritized = new List<ImdbSearchResult>();
         var secondary = new List<ImdbSearchResult>();
 
@@ -135,6 +169,23 @@ internal sealed class ImdbResolver
             GetLocalizedTitle(movie, "Velká Británie", "United Kingdom", "UK", "Spojené království"),
             movie.Title
         };
+
+        // Add origin country title as high priority
+        if (!string.IsNullOrWhiteSpace(movie.Origin))
+        {
+            var originCountries = movie.Origin.Split(new[] { '/', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                              .Select(c => c.Trim())
+                                              .ToList();
+            
+            foreach (var country in originCountries)
+            {
+                var originTitle = GetLocalizedTitle(movie, country);
+                if (!string.IsNullOrWhiteSpace(originTitle))
+                {
+                    candidates.Insert(0, originTitle); // Add at beginning for priority
+                }
+            }
+        }
 
         candidates.AddRange(movie.LocalizedTitles.Values);
 
@@ -301,7 +352,9 @@ internal sealed class ImdbResolver
 
     private IEnumerable<ImdbSearchResult> ExtractModernResults(HtmlDocument doc)
     {
-        var section = doc.DocumentNode.SelectSingleNode("//section[@data-testid='find-results-section-title'][.//h3[text()='Movies']]");
+        // Try "Movies" first (when filtered by type), then "Titles" (unfiltered results)
+        var section = doc.DocumentNode.SelectSingleNode("//section[@data-testid='find-results-section-title'][.//h3[text()='Movies']]")
+            ?? doc.DocumentNode.SelectSingleNode("//section[@data-testid='find-results-section-title'][.//h3[text()='Titles']]");
         if (section == null)
         {
             yield break;
@@ -328,7 +381,24 @@ internal sealed class ImdbResolver
                 continue;
             }
 
-            var titleText = WebUtility.HtmlDecode(linkNode.InnerText)?.Trim() ?? string.Empty;
+            // Extract title from aria-label (format: "View title page for <Title>")
+            var ariaLabel = linkNode.GetAttributeValue("aria-label", string.Empty);
+            var titleText = string.Empty;
+            if (!string.IsNullOrWhiteSpace(ariaLabel))
+            {
+                var prefixMatch = Regex.Match(ariaLabel, @"(?:View title page for |)(.+)$");
+                if (prefixMatch.Success)
+                {
+                    titleText = WebUtility.HtmlDecode(prefixMatch.Groups[1].Value)?.Trim() ?? string.Empty;
+                }
+            }
+            
+            // Fallback to InnerText if aria-label parsing failed
+            if (string.IsNullOrWhiteSpace(titleText))
+            {
+                titleText = WebUtility.HtmlDecode(linkNode.InnerText)?.Trim() ?? string.Empty;
+            }
+            
             string? year = null;
             var rawBuilder = new StringBuilder();
 

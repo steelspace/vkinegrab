@@ -8,14 +8,23 @@ class Program
     static async Task Main(string[] args)
     {
         var scraper = new CsfdScraper();
-        // Example ID provided by user
-        int movieId = 1580037;
+        var movieId = 1580037;
+
+        if (args.Length > 0)
+        {
+            if (!int.TryParse(args[0], out movieId) || movieId <= 0)
+            {
+                Console.WriteLine("Please provide a valid numeric CSFD movie ID as the first argument.");
+                return;
+            }
+        }
         
         try 
         {
             var movie = await scraper.ScrapeMovieAsync(movieId);
     
             Console.WriteLine("--------------------------------------------------");
+            Console.WriteLine($"CSFD SOURCE ID: {movieId}");
             Console.WriteLine($"ID: {movie.Id}");
             Console.WriteLine($"TITLE: {movie.Title}");
             Console.WriteLine($"YEAR: {movie.Year}");

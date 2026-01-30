@@ -369,20 +369,23 @@ internal sealed class ImdbResolver
         var metadata = await FetchTitleMetadataAsync(imdbId);
         if (metadata == null)
         {
-            return false;
+            return true;
         }
 
-        if (!IsYearValid(movie.Year, metadata.Year))
+        var yearValid = IsYearValid(movie.Year, metadata.Year);
+        var directorsValid = AreDirectorsValid(movie.Directors, metadata.Directors);
+
+        if (hasYear && hasDirectors)
         {
-            return false;
+            return yearValid && directorsValid;
         }
 
-        if (!AreDirectorsValid(movie.Directors, metadata.Directors))
+        if (hasYear)
         {
-            return false;
+            return yearValid;
         }
 
-        return true;
+        return directorsValid;
     }
 
     private bool IsYearValid(string? movieYear, string? imdbYear)
@@ -403,7 +406,19 @@ internal sealed class ImdbResolver
             return false;
         }
 
-        return string.Equals(normalizedMovieYear, imdbYear, StringComparison.Ordinal);
+        if (string.Equals(normalizedMovieYear, imdbYear, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var normalizedImdbYear = ExtractYearDigits(imdbYear);
+        if (int.TryParse(normalizedMovieYear, out var movieYearValue) && 
+            int.TryParse(normalizedImdbYear, out var imdbYearValue))
+        {
+            return Math.Abs(movieYearValue - imdbYearValue) <= 1;
+        }
+
+        return false;
     }
 
     private string? ExtractYearDigits(string? value)

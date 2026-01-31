@@ -186,7 +186,7 @@ static async Task PrintCinemaSchedule(string[] args)
     foreach (var cinema in cinemas)
     {
         var scheduleDate = cinema.ScheduleDate?.ToString("yyyy-MM-dd", culture) ?? "N/A";
-        Console.WriteLine($"{cinema.City ?? "?"} - {cinema.Name ?? "Unknown"} ({scheduleDate})");
+        Console.WriteLine($"{cinema.Venue.City ?? "?"} - {cinema.Venue.Name ?? "Unknown"} ({scheduleDate})");
 
         foreach (var performance in cinema.Performances.OrderBy(p => p.MovieTitle).Take(5))
         {

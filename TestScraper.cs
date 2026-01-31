@@ -204,7 +204,7 @@ public class TestScraper
 
         Console.WriteLine($"Fetching cinema schedule for period '{period}'{(requestUri != null ? $" ({requestUri})" : string.Empty)}...");
 
-        IReadOnlyList<Venue> cinemas;
+        IReadOnlyList<VenueSchedule> cinemas;
         try
         {
             var service = new PerformancesService();
@@ -257,10 +257,10 @@ public class TestScraper
             var movieYear = string.IsNullOrWhiteSpace(movie?.Year) ? string.Empty : $" ({movie!.Year})";
 
             var cinemaGroups = group
-                .GroupBy(x => x.cinema.Id)
+                .GroupBy(x => x.cinema.Venue.Id)
                 .Select(g => new
                 {
-                    Cinema = g.First().cinema,
+                    Cinema = g.First().cinema.Venue,
                     Performances = g.Select(item => item.performance).ToList()
                 })
                 .OrderBy(g => g.Cinema.City ?? string.Empty)

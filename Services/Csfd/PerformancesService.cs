@@ -28,7 +28,7 @@ public class PerformancesService
         }
     }
 
-    public async Task<IReadOnlyList<Venue>> GetPerformances(
+    public async Task<IReadOnlyList<VenueSchedule>> GetPerformances(
         Uri? pageUri = null,
         string period = "today",
         CancellationToken cancellationToken = default)
@@ -83,7 +83,7 @@ public class PerformancesService
         return await httpClient.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
-    private IReadOnlyList<Venue> ParseCinemas(string html, Uri requestUri)
+    private IReadOnlyList<VenueSchedule> ParseCinemas(string html, Uri requestUri)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -91,23 +91,23 @@ public class PerformancesService
         var sections = doc.DocumentNode.SelectNodes("//section[contains(@class,'updated-box-cinema')]");
         if (sections is null || sections.Count == 0)
         {
-            return Array.Empty<Venue>();
+            return Array.Empty<VenueSchedule>();
         }
 
-        var cinemas = new List<Venue>(sections.Count);
+        var schedules = new List<VenueSchedule>(sections.Count);
         foreach (var section in sections)
         {
-            var cinema = ParseCinema(section, requestUri);
-            if (cinema != null)
+            var schedule = ParseCinema(section, requestUri);
+            if (schedule != null)
             {
-                cinemas.Add(cinema);
+                schedules.Add(schedule);
             }
         }
 
-        return cinemas;
+        return schedules;
     }
 
-    private Venue? ParseCinema(HtmlNode section, Uri requestUri)
+    private VenueSchedule? ParseCinema(HtmlNode section, Uri requestUri)
     {
         var idValue = section.GetAttributeValue("id", string.Empty);
         var cinemaId = ExtractInt(CinemaIdRegex, idValue);
@@ -142,14 +142,19 @@ public class PerformancesService
         var showDate = scheduleDate ?? DateOnly.FromDateTime(DateTime.Today);
 
         var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
-        var cinema = new Venue
+        var venue = new Venue
         {
             Id = cinemaId,
             City = city,
             Name = cinemaName,
             DetailUrl = detailUrl,
             Address = address,
-            MapUrl = mapUrl,
+            MapUrl = mapUrl
+        };
+
+        var schedule = new VenueSchedule
+        {
+            Venue = venue,
             ScheduleDate = scheduleDate
         };
 
@@ -160,17 +165,17 @@ public class PerformancesService
                 var performance = ParsePerformance(row, showDate, requestUri);
                 if (performance != null && performance.Showtimes.Count > 0)
                 {
-                    cinema.Performances.Add(performance);
+                    schedule.Performances.Add(performance);
                 }
             }
         }
 
-        if (cinema.Performances.Count == 0)
+        if (schedule.Performances.Count == 0)
         {
             return null;
         }
 
-        return cinema;
+        return schedule;
     }
 
     private CinemaPerformance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)

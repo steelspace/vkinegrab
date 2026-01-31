@@ -8,8 +8,6 @@ public class Venue
     public string? DetailUrl { get; set; }
     public string? Address { get; set; }
     public string? MapUrl { get; set; }
-    public DateOnly? ScheduleDate { get; set; }
-    public List<CinemaPerformance> Performances { get; } = new();
 }
 
 public class CinemaPerformance

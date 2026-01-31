@@ -6,9 +6,9 @@ public static class MovieMergeExtensions
     /// Merges CsfdMovie and TmdbMovie data into a final MergedMovie structure.
     /// Priority: CSFD for text data, TMDB for media and metadata.
     /// </summary>
-    public static MergedMovie Merge(this CsfdMovie csfdMovie, TmdbMovie? tmdbMovie = null)
+    public static Movie Merge(this CsfdMovie csfdMovie, TmdbMovie? tmdbMovie = null)
     {
-        var merged = new MergedMovie
+        var merged = new Movie
         {
             CsfdId = csfdMovie.Id,
             TmdbId = tmdbMovie?.Id,

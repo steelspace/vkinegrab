@@ -1,6 +1,6 @@
 namespace vkinegrab.Models;
 
-public class MergedMovie
+public class Movie
 {
     public int CsfdId { get; set; }
     public int? TmdbId { get; set; }

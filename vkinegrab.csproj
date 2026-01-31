@@ -9,12 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="vkinegrab.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
-    <PackageReference Include="xunit" Version="2.8.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.8" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.1" />
   </ItemGroup>
 
 </Project>

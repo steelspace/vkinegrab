@@ -28,14 +28,14 @@ public class PerformancesService
         }
     }
 
-    public async Task<IReadOnlyList<CsfdCinema>> GetPerformancesAsync(
+    public async Task<IReadOnlyList<CsfdCinema>> GetPerformances(
         Uri? pageUri = null,
         string period = "today",
         CancellationToken cancellationToken = default)
     {
         pageUri ??= new Uri(baseUri, "/kino/1-praha/?period=all");
         var requestUri = AppendPeriod(pageUri, period);
-        var html = await FetchHtmlAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        var html = await FetchHtml(requestUri, cancellationToken).ConfigureAwait(false);
         return ParseCinemas(html, requestUri);
     }
 
@@ -73,7 +73,7 @@ public class PerformancesService
         return builder.Uri;
     }
 
-    private async Task<string> FetchHtmlAsync(Uri requestUri, CancellationToken cancellationToken)
+    private async Task<string> FetchHtml(Uri requestUri, CancellationToken cancellationToken)
     {
         if (!requestUri.IsAbsoluteUri)
         {

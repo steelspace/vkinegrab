@@ -1,23 +1,8 @@
-﻿using System;
-using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Globalization;
 using Microsoft.Extensions.Configuration;
+using vkinegrab.Models;
+using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
-
-// Check if running tests
-if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
-{
-    var testArgs = args.Skip(1).ToArray();
-    await vkinegrab.TestScraper.Run(testArgs);
-    return;
-}
-
-if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreCase))
-{
-    await PrintCinemaSchedule(args);
-    return;
-}
 
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets("vkinegrab-tmdb-secrets")
@@ -30,6 +15,51 @@ if (string.IsNullOrWhiteSpace(tmdbBearerToken))
     Console.WriteLine("ERROR: TMDB Bearer Token not found!");
     Console.WriteLine("Please set it using:");
     Console.WriteLine("  dotnet user-secrets set \"Tmdb:BearerToken\" \"your-bearer-token-here\"");
+    return;
+}
+
+// Initialize MongoDB connection string
+var mongoConnectionString = configuration["MongoDB:ConnectionString"];
+
+if (string.IsNullOrWhiteSpace(mongoConnectionString))
+{
+    Console.WriteLine("ERROR: MongoDB Connection String not found!");
+    Console.WriteLine("Please set it using:");
+    Console.WriteLine("  dotnet user-secrets set \"MongoDB:ConnectionString\" \"your-connection-string\"");
+    return;
+}
+
+var databaseService = new DatabaseService(mongoConnectionString);
+
+// Test MongoDB connection
+try
+{
+    var isConnected = await databaseService.TestConnection();
+    if (isConnected)
+    {
+        Console.WriteLine("✓ MongoDB connection successful");
+    }
+    else
+    {
+        Console.WriteLine("✗ MongoDB connection failed");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"✗ MongoDB connection error: {ex.Message}");
+}
+
+// Check if running tests
+if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
+{
+    var testArgs = args.Skip(1).ToArray();
+    await vkinegrab.TestScraper.Run(testArgs);
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreCase))
+{
+    await PrintCinemaSchedule(args);
     return;
 }
 
@@ -59,6 +89,20 @@ try
 {
     var movie = await scraper.ScrapeMovie(movieId);
     var tmdbMovie = await scraper.ResolveTmdb(movie);
+    
+    // Merge the movies
+    var mergedMovie = movie.Merge(tmdbMovie);
+    
+    // Store in database
+    try
+    {
+        await databaseService.StoreMovie(mergedMovie);
+        Console.WriteLine("✓ Movie stored in MongoDB");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ Failed to store movie in database: {ex.Message}");
+    }
 
     Console.WriteLine("--------------------------------------------------");
     Console.WriteLine($"CSFD SOURCE ID: {movieId}");
@@ -133,7 +177,7 @@ static async Task PrintCinemaSchedule(string[] args)
     }
 
     var performancesService = new PerformancesService();
-    var cinemas = await performancesService.GetPerformancesAsync(pageUri, period);
+    var cinemas = await performancesService.GetPerformances(pageUri, period);
 
     Console.WriteLine($"Fetched {cinemas.Count} cinemas for period '{period}'.");
     Console.WriteLine("----------------------------------------");

@@ -208,7 +208,7 @@ public class TestScraper
         try
         {
             var service = new PerformancesService();
-            cinemas = await service.GetPerformancesAsync(requestUri, period);
+            cinemas = await service.GetPerformances(requestUri, period);
         }
         catch (Exception ex)
         {

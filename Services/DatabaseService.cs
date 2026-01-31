@@ -1,7 +1,7 @@
 using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using vkinegrab.Models;
+using vkinegrab.Services.Dtos;
 
 namespace vkinegrab.Services;
 
@@ -113,59 +113,6 @@ public class DatabaseService
     }
 
     /// <summary>
-    /// Retrieves all movies from the database.
-    /// </summary>
-    public async Task<List<Movie>> GetAllMovies()
-    {
-        try
-        {
-            var storedMovies = await _moviesCollection.Find(_ => true).ToListAsync();
-            
-            return storedMovies.Select(sm => new Movie
-            {
-                CsfdId = sm.CsfdId,
-                TmdbId = sm.TmdbId,
-                ImdbId = sm.ImdbId,
-                Title = sm.Title,
-                OriginalTitle = sm.OriginalTitle,
-                Year = sm.Year,
-                Description = sm.Description,
-                Origin = sm.Origin,
-                Genres = sm.Genres,
-                Directors = sm.Directors,
-                Cast = sm.Cast,
-                PosterUrl = sm.PosterUrl,
-                BackdropUrl = sm.BackdropUrl,
-                VoteAverage = sm.VoteAverage,
-                VoteCount = sm.VoteCount,
-                Popularity = sm.Popularity,
-                OriginalLanguage = sm.OriginalLanguage,
-                Adult = sm.Adult,
-                LocalizedTitles = sm.LocalizedTitles
-            }).ToList();
-        }
-        catch (MongoException ex)
-        {
-            throw new InvalidOperationException("Failed to retrieve movies from database", ex);
-        }
-    }
-
-    /// <summary>
-    /// Deletes a movie by CSFD ID from the database.
-    /// </summary>
-    public async Task DeleteMovie(int csfdId)
-    {
-        try
-        {
-            await _moviesCollection.DeleteOneAsync(m => m.CsfdId == csfdId);
-        }
-        catch (MongoException ex)
-        {
-            throw new InvalidOperationException($"Failed to delete movie with ID {csfdId}", ex);
-        }
-    }
-
-    /// <summary>
     /// Tests the MongoDB connection.
     /// </summary>
     public async Task<bool> TestConnection()
@@ -182,72 +129,4 @@ public class DatabaseService
         }
     }
 
-    /// <summary>
-    /// Internal model for storing movies in MongoDB.
-    /// </summary>
-    private class StoredMovie
-    {
-        [BsonId]
-        public ObjectId Id { get; set; }
-
-        [BsonElement("csfd_id")]
-        public int CsfdId { get; set; }
-
-        [BsonElement("tmdb_id")]
-        public int? TmdbId { get; set; }
-
-        [BsonElement("imdb_id")]
-        public string? ImdbId { get; set; }
-
-        [BsonElement("title")]
-        public string? Title { get; set; }
-
-        [BsonElement("original_title")]
-        public string? OriginalTitle { get; set; }
-
-        [BsonElement("year")]
-        public string? Year { get; set; }
-
-        [BsonElement("description")]
-        public string? Description { get; set; }
-
-        [BsonElement("origin")]
-        public string? Origin { get; set; }
-
-        [BsonElement("genres")]
-        public List<string> Genres { get; set; } = new();
-
-        [BsonElement("directors")]
-        public List<string> Directors { get; set; } = new();
-
-        [BsonElement("cast")]
-        public List<string> Cast { get; set; } = new();
-
-        [BsonElement("poster_url")]
-        public string? PosterUrl { get; set; }
-
-        [BsonElement("backdrop_url")]
-        public string? BackdropUrl { get; set; }
-
-        [BsonElement("vote_average")]
-        public double? VoteAverage { get; set; }
-
-        [BsonElement("vote_count")]
-        public int? VoteCount { get; set; }
-
-        [BsonElement("popularity")]
-        public double? Popularity { get; set; }
-
-        [BsonElement("original_language")]
-        public string? OriginalLanguage { get; set; }
-
-        [BsonElement("adult")]
-        public bool? Adult { get; set; }
-
-        [BsonElement("localized_titles")]
-        public Dictionary<string, string> LocalizedTitles { get; set; } = new();
-
-        [BsonElement("stored_at")]
-        public DateTime StoredAt { get; set; }
-    }
 }

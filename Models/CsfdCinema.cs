@@ -1,6 +1,6 @@
 namespace vkinegrab.Models;
 
-public class CsfdCinema
+public class Venue
 {
     public int Id { get; set; }
     public string? City { get; set; }
@@ -9,10 +9,10 @@ public class CsfdCinema
     public string? Address { get; set; }
     public string? MapUrl { get; set; }
     public DateOnly? ScheduleDate { get; set; }
-    public List<CsfdCinemaPerformance> Performances { get; } = new();
+    public List<CinemaPerformance> Performances { get; } = new();
 }
 
-public class CsfdCinemaPerformance
+public class CinemaPerformance
 {
     public int MovieId { get; set; }
     public string MovieTitle { get; set; } = string.Empty;

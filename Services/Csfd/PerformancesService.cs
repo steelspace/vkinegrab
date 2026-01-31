@@ -28,7 +28,7 @@ public class PerformancesService
         }
     }
 
-    public async Task<IReadOnlyList<CsfdCinema>> GetPerformances(
+    public async Task<IReadOnlyList<Venue>> GetPerformances(
         Uri? pageUri = null,
         string period = "today",
         CancellationToken cancellationToken = default)
@@ -83,7 +83,7 @@ public class PerformancesService
         return await httpClient.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
-    private IReadOnlyList<CsfdCinema> ParseCinemas(string html, Uri requestUri)
+    private IReadOnlyList<Venue> ParseCinemas(string html, Uri requestUri)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -91,10 +91,10 @@ public class PerformancesService
         var sections = doc.DocumentNode.SelectNodes("//section[contains(@class,'updated-box-cinema')]");
         if (sections is null || sections.Count == 0)
         {
-            return Array.Empty<CsfdCinema>();
+            return Array.Empty<Venue>();
         }
 
-        var cinemas = new List<CsfdCinema>(sections.Count);
+        var cinemas = new List<Venue>(sections.Count);
         foreach (var section in sections)
         {
             var cinema = ParseCinema(section, requestUri);
@@ -107,7 +107,7 @@ public class PerformancesService
         return cinemas;
     }
 
-    private CsfdCinema? ParseCinema(HtmlNode section, Uri requestUri)
+    private Venue? ParseCinema(HtmlNode section, Uri requestUri)
     {
         var idValue = section.GetAttributeValue("id", string.Empty);
         var cinemaId = ExtractInt(CinemaIdRegex, idValue);
@@ -142,7 +142,7 @@ public class PerformancesService
         var showDate = scheduleDate ?? DateOnly.FromDateTime(DateTime.Today);
 
         var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
-        var cinema = new CsfdCinema
+        var cinema = new Venue
         {
             Id = cinemaId,
             City = city,
@@ -173,7 +173,7 @@ public class PerformancesService
         return cinema;
     }
 
-    private CsfdCinemaPerformance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
+    private CinemaPerformance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
     {
         var movieLink = row.SelectSingleNode(".//td[contains(@class,'name')]//a[contains(@href,'/film/')]");
         if (movieLink == null)
@@ -185,7 +185,7 @@ public class PerformancesService
         var movieUrl = ToAbsoluteUrl(movieLink.GetAttributeValue("href", string.Empty), requestUri);
         var movieId = ExtractInt(FilmIdRegex, movieUrl);
 
-        var performance = new CsfdCinemaPerformance
+        var performance = new CinemaPerformance
         {
             MovieId = movieId,
             MovieTitle = movieTitle ?? string.Empty,

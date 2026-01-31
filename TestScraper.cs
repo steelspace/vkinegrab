@@ -204,7 +204,7 @@ public class TestScraper
 
         Console.WriteLine($"Fetching cinema schedule for period '{period}'{(requestUri != null ? $" ({requestUri})" : string.Empty)}...");
 
-        IReadOnlyList<CsfdCinema> cinemas;
+        IReadOnlyList<Venue> cinemas;
         try
         {
             var service = new PerformancesService();

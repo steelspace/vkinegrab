@@ -4,6 +4,7 @@ public class CsfdMovie
 {
     public int Id { get; set; }
     public string? Title { get; set; }
+    public string? OriginalTitle { get; set; }
     public string? ImdbId { get; set; }
     public string? ImdbUrl => string.IsNullOrEmpty(ImdbId) ? null : $"https://www.imdb.com/title/{ImdbId}/";
     public Dictionary<string, string> LocalizedTitles { get; set; } = new(StringComparer.OrdinalIgnoreCase);

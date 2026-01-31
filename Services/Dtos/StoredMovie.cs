@@ -5,69 +5,8 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace vkinegrab.Services.Dtos
 {
+    [System.Obsolete("StoredMovie moved to vkinegrab.Models.Dtos.MovieDto — use that type instead.")]
     internal class StoredMovie
     {
-        [BsonId]
-        public ObjectId Id { get; set; }
-
-        [BsonElement("csfd_id")]
-        public int CsfdId { get; set; }
-
-        [BsonElement("tmdb_id")]
-        public int? TmdbId { get; set; }
-
-        [BsonElement("imdb_id")]
-        public string? ImdbId { get; set; }
-
-        [BsonElement("title")]
-        public string? Title { get; set; }
-
-        [BsonElement("original_title")]
-        public string? OriginalTitle { get; set; }
-
-        [BsonElement("year")]
-        public string? Year { get; set; }
-
-        [BsonElement("description")]
-        public string? Description { get; set; }
-
-        [BsonElement("origin")]
-        public string? Origin { get; set; }
-
-        [BsonElement("genres")]
-        public List<string> Genres { get; set; } = new();
-
-        [BsonElement("directors")]
-        public List<string> Directors { get; set; } = new();
-
-        [BsonElement("cast")]
-        public List<string> Cast { get; set; } = new();
-
-        [BsonElement("poster_url")]
-        public string? PosterUrl { get; set; }
-
-        [BsonElement("backdrop_url")]
-        public string? BackdropUrl { get; set; }
-
-        [BsonElement("vote_average")]
-        public double? VoteAverage { get; set; }
-
-        [BsonElement("vote_count")]
-        public int? VoteCount { get; set; }
-
-        [BsonElement("popularity")]
-        public double? Popularity { get; set; }
-
-        [BsonElement("original_language")]
-        public string? OriginalLanguage { get; set; }
-
-        [BsonElement("adult")]
-        public bool? Adult { get; set; }
-
-        [BsonElement("localized_titles")]
-        public Dictionary<string, string> LocalizedTitles { get; set; } = new();
-
-        [BsonElement("stored_at")]
-        public DateTime StoredAt { get; set; }
     }
 }

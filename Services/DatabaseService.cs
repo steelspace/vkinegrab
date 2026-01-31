@@ -1,7 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
 using vkinegrab.Models;
-using vkinegrab.Services.Dtos;
+using vkinegrab.Models.Dtos;
 
 namespace vkinegrab.Services;
 
@@ -10,22 +10,22 @@ namespace vkinegrab.Services;
 /// </summary>
 public class DatabaseService
 {
-    private readonly IMongoDatabase _database;
-    private readonly IMongoCollection<StoredMovie> _moviesCollection;
+    private readonly IMongoDatabase database;
+    private readonly IMongoCollection<MovieDto> moviesCollection;
 
     public DatabaseService(string connectionString)
     {
         var client = new MongoClient(connectionString);
-        _database = client.GetDatabase("movies");
-        _moviesCollection = _database.GetCollection<StoredMovie>("merged_movies");
+        database = client.GetDatabase("movies");
+        moviesCollection = database.GetCollection<MovieDto>("movies");
         
         // Create index on CsfdId for faster lookups
         var indexOptions = new CreateIndexOptions { Unique = true };
-        var indexModel = new CreateIndexModel<StoredMovie>(
-            Builders<StoredMovie>.IndexKeys.Ascending(m => m.CsfdId),
+        var indexModel = new CreateIndexModel<MovieDto>(
+            Builders<MovieDto>.IndexKeys.Ascending(m => m.CsfdId),
             indexOptions
         );
-        _moviesCollection.Indexes.CreateOne(indexModel);
+        moviesCollection.Indexes.CreateOne(indexModel);
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class DatabaseService
     /// </summary>
     public async Task StoreMovie(Movie movie)
     {
-        var storedMovie = new StoredMovie
+        var storedMovie = new MovieDto
         {
             CsfdId = movie.CsfdId,
             TmdbId = movie.TmdbId,
@@ -59,8 +59,8 @@ public class DatabaseService
 
         try
         {
-            await _moviesCollection.ReplaceOneAsync(
-                Builders<StoredMovie>.Filter.Eq(m => m.CsfdId, movie.CsfdId),
+            await moviesCollection.ReplaceOneAsync(
+                Builders<MovieDto>.Filter.Eq(m => m.CsfdId, movie.CsfdId),
                 storedMovie,
                 new ReplaceOptions { IsUpsert = true }
             );
@@ -78,7 +78,7 @@ public class DatabaseService
     {
         try
         {
-            var storedMovie = await _moviesCollection.Find(m => m.CsfdId == csfdId).FirstOrDefaultAsync();
+            var storedMovie = await moviesCollection.Find(m => m.CsfdId == csfdId).FirstOrDefaultAsync();
             
             if (storedMovie == null)
                 return null;
@@ -119,7 +119,7 @@ public class DatabaseService
     {
         try
         {
-            await _database.Client.GetDatabase("admin")
+            await database.Client.GetDatabase("admin")
                 .RunCommandAsync((Command<BsonDocument>)"{ping:1}");
             return true;
         }

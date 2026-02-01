@@ -210,7 +210,7 @@ public class PerformancesService
         return performance.Showtimes.Count > 0 ? performance : null;
     }
 
-    private IEnumerable<CsfdCinemaBadge> ExtractHallBadges(HtmlNode row)
+    private IEnumerable<CinemaBadge> ExtractHallBadges(HtmlNode row)
     {
         var hallSpans = row.SelectNodes(".//td[contains(@class,'name')]//span[contains(@class,'cinema-icon')]");
         if (hallSpans == null)
@@ -222,16 +222,16 @@ public class PerformancesService
         {
             var code = Clean(span.InnerText)?.TrimEnd(',') ?? string.Empty;
             var description = Clean(span.GetAttributeValue("data-tippy-content", string.Empty)) ?? code;
-            yield return new CsfdCinemaBadge
+            yield return new CinemaBadge
             {
-                Kind = CsfdBadgeKind.Hall,
+                Kind = BadgeKind.Hall,
                 Code = code,
                 Description = description
             };
         }
     }
 
-    private IEnumerable<CsfdCinemaBadge> ExtractFormatBadges(HtmlNode row)
+    private IEnumerable<CinemaBadge> ExtractFormatBadges(HtmlNode row)
     {
         var formatSpans = row.SelectNodes(".//td[contains(@class,'td-title')]//span");
         if (formatSpans == null)
@@ -248,16 +248,16 @@ public class PerformancesService
             }
 
             var description = Clean(span.GetAttributeValue("title", string.Empty));
-            yield return new CsfdCinemaBadge
+            yield return new CinemaBadge
             {
-                Kind = CsfdBadgeKind.Format,
+                Kind = BadgeKind.Format,
                 Code = code,
                 Description = description
             };
         }
     }
 
-    private IEnumerable<CsfdShowtime> ExtractShowtimes(HtmlNode row, DateOnly date, Uri requestUri)
+    private IEnumerable<Showtime> ExtractShowtimes(HtmlNode row, DateOnly date, Uri requestUri)
     {
         var cells = row.SelectNodes(".//td[contains(@class,'td-time')]");
         if (cells == null)
@@ -286,7 +286,7 @@ public class PerformancesService
                     var start = date.ToDateTime(time);
                     if (seen.Add(start))
                     {
-                        yield return new CsfdShowtime
+                        yield return new Showtime
                         {
                             StartAt = start,
                             TicketsAvailable = true,
@@ -307,7 +307,7 @@ public class PerformancesService
                 var start = date.ToDateTime(time);
                 if (seen.Add(start))
                 {
-                    yield return new CsfdShowtime
+                    yield return new Showtime
                     {
                         StartAt = start,
                         TicketsAvailable = hasTicketClass,

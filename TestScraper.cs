@@ -272,7 +272,7 @@ public class TestScraper
                 foreach (var performance in cinemaGroup.Performances)
                 {
                     var hallLabels = performance.Badges
-                        .Where(b => b.Kind == CsfdBadgeKind.Hall)
+                        .Where(b => b.Kind == BadgeKind.Hall)
                         .Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)
                         .Where(label => !string.IsNullOrWhiteSpace(label))
                         .Distinct(StringComparer.OrdinalIgnoreCase)

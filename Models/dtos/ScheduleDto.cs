@@ -30,16 +30,16 @@ internal class PerformanceDto
     public int VenueId { get; set; }
 
     [BsonElement("badges")]
-    public List<CsfdCinemaBadgeDto> Badges { get; set; } = new();
+    public List<CinemaBadgeDto> Badges { get; set; } = new();
 
     [BsonElement("showtimes")]
-    public List<CsfdShowtimeDto> Showtimes { get; set; } = new();
+    public List<ShowtimeDto> Showtimes { get; set; } = new();
 }
 
-internal class CsfdCinemaBadgeDto
+internal class CinemaBadgeDto
 {
     [BsonElement("kind")]
-    public CsfdBadgeKind Kind { get; set; }
+    public BadgeKind Kind { get; set; }
 
     [BsonElement("code")]
     public string Code { get; set; } = string.Empty;
@@ -48,7 +48,7 @@ internal class CsfdCinemaBadgeDto
     public string? Description { get; set; }
 }
 
-internal class CsfdShowtimeDto
+internal class ShowtimeDto
 {
     [BsonElement("start_at")]
     public DateTime StartAt { get; set; }
@@ -74,8 +74,8 @@ internal static class ScheduleDtoExtensions
             Performances = schedule.Performances.Select(p => new PerformanceDto
             {
                 VenueId = p.VenueId,
-                Badges = p.Badges.Select(b => new CsfdCinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList(),
-                Showtimes = p.Showtimes.Select(s => new CsfdShowtimeDto { StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), TicketsAvailable = s.TicketsAvailable, TicketUrl = s.TicketUrl }).ToList()
+                Badges = p.Badges.Select(b => new CinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList(),
+                Showtimes = p.Showtimes.Select(s => new ShowtimeDto { StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), TicketsAvailable = s.TicketsAvailable, TicketUrl = s.TicketUrl }).ToList()
             }).ToList(),
             StoredAt = DateTime.UtcNow
         };
@@ -100,12 +100,12 @@ internal static class ScheduleDtoExtensions
 
             foreach (var b in p.Badges)
             {
-                perf.Badges.Add(new CsfdCinemaBadge { Kind = b.Kind, Code = b.Code, Description = b.Description });
+                perf.Badges.Add(new CinemaBadge { Kind = b.Kind, Code = b.Code, Description = b.Description });
             }
 
             foreach (var s in p.Showtimes)
             {
-                perf.Showtimes.Add(new CsfdShowtime { StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), TicketsAvailable = s.TicketsAvailable, TicketUrl = s.TicketUrl });
+                perf.Showtimes.Add(new Showtime { StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), TicketsAvailable = s.TicketsAvailable, TicketUrl = s.TicketUrl });
             }
 
             target.Performances.Add(perf);

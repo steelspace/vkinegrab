@@ -28,7 +28,7 @@ public class PerformancesService
         }
     }
 
-    public async Task<IReadOnlyList<VenueSchedule>> GetPerformances(
+    public async Task<IReadOnlyList<Schedule>> GetSchedules(
         Uri? pageUri = null,
         string period = "today",
         CancellationToken cancellationToken = default)
@@ -36,7 +36,7 @@ public class PerformancesService
         pageUri ??= new Uri(baseUri, "/kino/1-praha/?period=all");
         var requestUri = AppendPeriod(pageUri, period);
         var html = await FetchHtml(requestUri, cancellationToken).ConfigureAwait(false);
-        return ParseCinemas(html, requestUri);
+        return ParseSchedules(html, requestUri);
     }
 
     private static HttpClient CreateDefaultClient(Uri baseUri)
@@ -83,7 +83,7 @@ public class PerformancesService
         return await httpClient.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
-    private IReadOnlyList<VenueSchedule> ParseCinemas(string html, Uri requestUri)
+    private IReadOnlyList<Schedule> ParseSchedules(string html, Uri requestUri)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -91,94 +91,85 @@ public class PerformancesService
         var sections = doc.DocumentNode.SelectNodes("//section[contains(@class,'updated-box-cinema')]");
         if (sections is null || sections.Count == 0)
         {
-            return Array.Empty<VenueSchedule>();
+            return Array.Empty<Schedule>();
         }
 
-        var schedules = new List<VenueSchedule>(sections.Count);
+        var schedules = new Dictionary<(DateOnly date, int movieId), Schedule>();
+
         foreach (var section in sections)
         {
-            var schedule = ParseCinema(section, requestUri);
-            if (schedule != null)
+            var idValue = section.GetAttributeValue("id", string.Empty);
+            var cinemaId = ExtractInt(CinemaIdRegex, idValue);
+
+            var subHeader = section.SelectSingleNode(".//div[contains(@class,'update-box-sub-header')]");
+            var dateText = subHeader?.ChildNodes
+                                     .Where(n => n.NodeType == HtmlNodeType.Text)
+                                     .Select(n => n.InnerText)
+                                     .FirstOrDefault();
+            var scheduleDate = ParseDate(dateText);
+            var showDate = scheduleDate ?? DateOnly.FromDateTime(DateTime.Today);
+
+            var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
+            if (rows == null)
             {
-                schedules.Add(schedule);
+                continue;
             }
-        }
 
-        return schedules;
-    }
-
-    private VenueSchedule? ParseCinema(HtmlNode section, Uri requestUri)
-    {
-        var idValue = section.GetAttributeValue("id", string.Empty);
-        var cinemaId = ExtractInt(CinemaIdRegex, idValue);
-
-        var header = section.SelectSingleNode(".//header[contains(@class,'updated-box-header')]");
-        var titleLink = header?.SelectSingleNode(".//h2/a");
-        var fullTitle = Clean(titleLink?.InnerText);
-
-        string? city = null;
-        string? cinemaName = fullTitle;
-        if (!string.IsNullOrWhiteSpace(fullTitle))
-        {
-            var parts = fullTitle.Split(" - ", 2, StringSplitOptions.TrimEntries);
-            if (parts.Length == 2)
-            {
-                city = parts[0];
-                cinemaName = parts[1];
-            }
-        }
-
-        var mapLink = header?.SelectSingleNode(".//a[contains(@class,'btn-web')]");
-        var address = Clean(mapLink?.InnerText);
-        var mapUrl = ToAbsoluteUrl(mapLink?.GetAttributeValue("href", string.Empty), requestUri);
-        var detailUrl = ToAbsoluteUrl(titleLink?.GetAttributeValue("href", string.Empty), requestUri);
-
-        var subHeader = section.SelectSingleNode(".//div[contains(@class,'update-box-sub-header')]");
-        var dateText = subHeader?.ChildNodes
-                                 .Where(n => n.NodeType == HtmlNodeType.Text)
-                                 .Select(n => n.InnerText)
-                                 .FirstOrDefault();
-        var scheduleDate = ParseDate(dateText);
-        var showDate = scheduleDate ?? DateOnly.FromDateTime(DateTime.Today);
-
-        var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
-        var venue = new Venue
-        {
-            Id = cinemaId,
-            City = city,
-            Name = cinemaName,
-            DetailUrl = detailUrl,
-            Address = address,
-            MapUrl = mapUrl
-        };
-
-        var schedule = new VenueSchedule
-        {
-            Venue = venue,
-            ScheduleDate = scheduleDate
-        };
-
-        if (rows != null)
-        {
             foreach (var row in rows)
             {
                 var performance = ParsePerformance(row, showDate, requestUri);
-                if (performance != null && performance.Showtimes.Count > 0)
+                if (performance == null || performance.Showtimes.Count == 0)
+                {
+                    continue;
+                }
+
+                performance.VenueId = cinemaId;
+
+                var key = (showDate, performance.MovieId);
+                if (!schedules.TryGetValue(key, out var schedule))
+                {
+                    schedule = new Schedule
+                    {
+                        Date = showDate,
+                        MovieId = performance.MovieId,
+                        MovieTitle = performance.MovieTitle
+                    };
+                    schedules[key] = schedule;
+                }
+
+                var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId);
+                if (existing != null)
+                {
+                    // merge showtimes uniquely
+                    foreach (var st in performance.Showtimes)
+                    {
+                        if (!existing.Showtimes.Any(s => s.StartAt == st.StartAt))
+                        {
+                            existing.Showtimes.Add(st);
+                        }
+                    }
+
+                    // merge badges uniquely
+                    foreach (var badge in performance.Badges)
+                    {
+                        if (!existing.Badges.Any(b => b.Kind == badge.Kind && b.Code == badge.Code))
+                        {
+                            existing.Badges.Add(badge);
+                        }
+                    }
+                }
+                else
                 {
                     schedule.Performances.Add(performance);
                 }
             }
         }
 
-        if (schedule.Performances.Count == 0)
-        {
-            return null;
-        }
-
-        return schedule;
+        return schedules.Values.OrderBy(s => s.Date).ThenBy(s => s.MovieId).ToList();
     }
 
-    private CinemaPerformance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
+
+    private Performance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
     {
         var movieLink = row.SelectSingleNode(".//td[contains(@class,'name')]//a[contains(@href,'/film/')]");
         if (movieLink == null)
@@ -190,7 +181,7 @@ public class PerformancesService
         var movieUrl = ToAbsoluteUrl(movieLink.GetAttributeValue("href", string.Empty), requestUri);
         var movieId = ExtractInt(FilmIdRegex, movieUrl);
 
-        var performance = new CinemaPerformance
+        var performance = new Performance
         {
             MovieId = movieId,
             MovieTitle = movieTitle ?? string.Empty,
@@ -300,7 +291,6 @@ public class PerformancesService
                             StartAt = start,
                             TicketsAvailable = true,
                             TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
-                            IsPast = isPast
                         };
                     }
                 }
@@ -322,7 +312,6 @@ public class PerformancesService
                         StartAt = start,
                         TicketsAvailable = hasTicketClass,
                         TicketUrl = hasTicketClass ? ToAbsoluteUrl(cell.SelectSingleNode(".//a")?.GetAttributeValue("href", string.Empty), requestUri) : null,
-                        IsPast = isPast
                     };
                 }
             }

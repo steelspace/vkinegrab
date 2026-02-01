@@ -10,11 +10,12 @@ public class Venue
     public string? MapUrl { get; set; }
 }
 
-public class CinemaPerformance
+public class Performance
 {
     public int MovieId { get; set; }
     public string MovieTitle { get; set; } = string.Empty;
     public string? MovieUrl { get; set; }
+    public int VenueId { get; set; }
     public List<CsfdCinemaBadge> Badges { get; } = new();
     public List<CsfdShowtime> Showtimes { get; } = new();
 }
@@ -38,5 +39,4 @@ public class CsfdShowtime
     public DateTime StartAt { get; set; }
     public bool TicketsAvailable { get; set; }
     public string? TicketUrl { get; set; }
-    public bool IsPast { get; set; }
 }

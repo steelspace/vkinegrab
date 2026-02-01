@@ -204,11 +204,11 @@ public class TestScraper
 
         Console.WriteLine($"Fetching cinema schedule for period '{period}'{(requestUri != null ? $" ({requestUri})" : string.Empty)}...");
 
-        IReadOnlyList<VenueSchedule> cinemas;
+        IReadOnlyList<Schedule> schedules;
         try
         {
             var service = new PerformancesService();
-            cinemas = await service.GetPerformances(requestUri, period);
+            schedules = await service.GetSchedules(requestUri, period);
         }
         catch (Exception ex)
         {
@@ -216,15 +216,15 @@ public class TestScraper
             return;
         }
 
-        if (cinemas.Count == 0)
+        if (schedules.Count == 0)
         {
-            Console.WriteLine("No cinemas returned.");
+            Console.WriteLine("No schedules returned.");
             return;
         }
 
-        var entries = cinemas
-            .SelectMany(cinema => cinema.Performances.Select(performance => new { cinema, performance }))
-            .Where(x => x.performance.MovieId > 0 && x.performance.Showtimes.Count > 0)
+        var entries = schedules
+            .SelectMany(schedule => schedule.Performances.Select(performance => new { schedule, performance }))
+            .Where(x => x.schedule.MovieId > 0 && x.performance.Showtimes.Count > 0)
             .ToList();
 
         if (entries.Count == 0)
@@ -257,14 +257,13 @@ public class TestScraper
             var movieYear = string.IsNullOrWhiteSpace(movie?.Year) ? string.Empty : $" ({movie!.Year})";
 
             var cinemaGroups = group
-                .GroupBy(x => x.cinema.Venue.Id)
+                .GroupBy(x => x.performance.VenueId)
                 .Select(g => new
                 {
-                    Cinema = g.First().cinema.Venue,
+                    VenueId = g.Key,
                     Performances = g.Select(item => item.performance).ToList()
                 })
-                .OrderBy(g => g.Cinema.City ?? string.Empty)
-                .ThenBy(g => g.Cinema.Name ?? string.Empty);
+                .OrderBy(g => g.VenueId);
 
             var theaterSummaries = new List<string>();
             foreach (var cinemaGroup in cinemaGroups)
@@ -299,7 +298,7 @@ public class TestScraper
                     continue;
                 }
 
-                var theaterLabel = $"{cinemaGroup.Cinema.City ?? "?"} - {cinemaGroup.Cinema.Name ?? "Unknown"}";
+                var theaterLabel = $"Venue {cinemaGroup.VenueId}";
                 theaterSummaries.Add($"{theaterLabel}: {string.Join(" | ", segments)}");
             }
 

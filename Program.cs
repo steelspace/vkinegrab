@@ -73,6 +73,64 @@ if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnor
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.OrdinalIgnoreCase))
+{
+    var remainingArgs = args.Skip(1).ToArray();
+    var period = remainingArgs.Length > 0 && !string.IsNullOrWhiteSpace(remainingArgs[0]) ? remainingArgs[0] : "all";
+
+    Uri? pageUri = null;
+    if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
+    {
+        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute))
+        {
+            pageUri = absolute;
+        }
+        else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
+        {
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+        }
+    }
+
+    var service = new PerformancesService();
+    IReadOnlyList<Schedule> schedules;
+    try
+    {
+        schedules = await service.GetSchedules(pageUri, period);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to download schedules: {ex.Message}");
+        return;
+    }
+
+    if (schedules.Count == 0)
+    {
+        Console.WriteLine("No schedules to store.");
+        return;
+    }
+
+    Console.WriteLine($"Storing {schedules.Count} schedules to MongoDB (collection 'schedule')...");
+    var success = 0;
+    var failed = 0;
+
+    foreach (var s in schedules)
+    {
+        try
+        {
+            await databaseService.StoreSchedule(s);
+            success++;
+        }
+        catch (Exception ex)
+        {
+            failed++;
+            Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date}: {ex.Message}");
+        }
+    }
+
+    Console.WriteLine($"Done. Stored: {success}. Failed: {failed}.");
+    return;
+}
+
 var scraper = new CsfdScraper(tmdbBearerToken);
 var movieId = 1580037;
 
@@ -177,35 +235,46 @@ static async Task PrintCinemaSchedule(string[] args)
     }
 
     var performancesService = new PerformancesService();
-    var cinemas = await performancesService.GetPerformances(pageUri, period);
+    var schedules = await performancesService.GetSchedules(pageUri, period);
 
-    Console.WriteLine($"Fetched {cinemas.Count} cinemas for period '{period}'.");
+    Console.WriteLine($"Fetched {schedules.Count} schedules for period '{period}'.");
     Console.WriteLine("----------------------------------------");
 
     var culture = CultureInfo.InvariantCulture;
-    foreach (var cinema in cinemas)
+
+    // Group by movie and print a compact summary (venues are referenced by ID)
+    var movieGroups = schedules
+        .GroupBy(s => s.MovieId)
+        .OrderByDescending(g => g.Sum(s => s.Performances.Sum(p => p.Showtimes.Count)))
+        .ToList();
+
+    foreach (var group in movieGroups.Take(20))
     {
-        var scheduleDate = cinema.ScheduleDate?.ToString("yyyy-MM-dd", culture) ?? "N/A";
-        Console.WriteLine($"{cinema.Venue.City ?? "?"} - {cinema.Venue.Name ?? "Unknown"} ({scheduleDate})");
+        var movieTitle = group.First().MovieTitle ?? $"Film #{group.Key}";
+        Console.WriteLine($"Movie: {movieTitle} ({group.Key})");
 
-        foreach (var performance in cinema.Performances.OrderBy(p => p.MovieTitle).Take(5))
+        var venueSummaries = new List<string>();
+        foreach (var schedule in group)
         {
-            var badges = performance.Badges.Any()
-                ? " [" + string.Join(", ", performance.Badges.Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)) + "]"
-                : string.Empty;
-
-            var showtimes = string.Join(", ", performance.Showtimes
-                .OrderBy(s => s.StartAt)
-                .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty)));
-
-            if (string.IsNullOrWhiteSpace(showtimes))
+            foreach (var perf in schedule.Performances)
             {
-                continue;
-            }
+                var showtimes = perf.Showtimes
+                    .OrderBy(s => s.StartAt)
+                    .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty))
+                    .Distinct()
+                    .ToList();
 
-            Console.WriteLine($"  - {performance.MovieTitle}{badges}: {showtimes}");
+                if (showtimes.Count == 0)
+                    continue;
+
+                venueSummaries.Add($"Venue {perf.VenueId}: {string.Join(", ", showtimes)}");
+            }
         }
 
+        if (venueSummaries.Count == 0)
+            continue;
+
+        Console.WriteLine("  Theaters: " + string.Join("; ", venueSummaries));
         Console.WriteLine();
     }
 

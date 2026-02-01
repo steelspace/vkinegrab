@@ -1,8 +1,9 @@
 namespace vkinegrab.Models;
 
-public class VenueSchedule
+public class Schedule
 {
-    public Venue Venue { get; set; } = new Venue();
-    public DateOnly? ScheduleDate { get; set; }
-    public List<CinemaPerformance> Performances { get; } = new();
+    public DateOnly Date { get; set; }
+    public int MovieId { get; set; }
+    public string? MovieTitle { get; set; }
+    public List<Performance> Performances { get; } = new();
 }

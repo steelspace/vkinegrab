@@ -12,12 +12,14 @@ public class DatabaseService
 {
     private readonly IMongoDatabase database;
     private readonly IMongoCollection<MovieDto> moviesCollection;
+    private readonly IMongoCollection<ScheduleDto> schedulesCollection;
 
     public DatabaseService(string connectionString)
     {
         var client = new MongoClient(connectionString);
         database = client.GetDatabase("movies");
         moviesCollection = database.GetCollection<MovieDto>("movies");
+        schedulesCollection = database.GetCollection<ScheduleDto>("schedule");
         
         // Create index on CsfdId for faster lookups
         var indexOptions = new CreateIndexOptions { Unique = true };
@@ -26,6 +28,14 @@ public class DatabaseService
             indexOptions
         );
         moviesCollection.Indexes.CreateOne(indexModel);
+
+        // Create compound unique index on date + movie_id for schedules
+        var scheduleIndexOptions = new CreateIndexOptions { Unique = true };
+        var scheduleIndex = new CreateIndexModel<ScheduleDto>(
+            Builders<ScheduleDto>.IndexKeys.Ascending(s => s.Date).Ascending(s => s.MovieId),
+            scheduleIndexOptions
+        );
+        schedulesCollection.Indexes.CreateOne(scheduleIndex);
     }
 
     /// <summary>
@@ -68,6 +78,43 @@ public class DatabaseService
         catch (MongoException ex)
         {
             throw new InvalidOperationException($"Failed to store movie with ID {movie.CsfdId}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Stores a schedule (per date + movie) in the database. Replaces existing document for the same date + movie.
+    /// </summary>
+    public async Task StoreSchedule(Schedule schedule)
+    {
+        var dto = schedule.ToDto();
+
+        try
+        {
+            var filter = Builders<ScheduleDto>.Filter.And(
+                Builders<ScheduleDto>.Filter.Eq(s => s.Date, dto.Date),
+                Builders<ScheduleDto>.Filter.Eq(s => s.MovieId, dto.MovieId)
+            );
+
+            await schedulesCollection.ReplaceOneAsync(
+                filter,
+                dto,
+                new ReplaceOptions { IsUpsert = true }
+            );
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException($"Failed to store schedule for movie {schedule.MovieId} on {schedule.Date}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Stores multiple schedules.
+    /// </summary>
+    public async Task StoreSchedules(IEnumerable<Schedule> schedules)
+    {
+        foreach (var schedule in schedules)
+        {
+            await StoreSchedule(schedule);
         }
     }
 

@@ -81,13 +81,21 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
     Uri? pageUri = null;
     if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
     {
-        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute))
+        // Only accept absolute http(s) URIs. On Unix a leading slash can produce a file:// URI
+        // which HttpClient doesn't support, so treat other inputs as relative CSFD paths.
+        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
         {
             pageUri = absolute;
         }
         else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
         {
             pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+        }
+        else
+        {
+            // Fallback: construct relative URI against the CSFD base
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), remainingArgs[1]);
         }
     }
 
@@ -123,44 +131,45 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         catch (Exception ex)
         {
             failed++;
-            Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date}: {ex.Message}");
+                // Print full exception (including inner exceptions and stack trace) to aid debugging
+                Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date:yyyy-MM-dd}: {ex}");
+            }
+        }
+
+        Console.WriteLine($"Done. Stored: {success}. Failed: {failed}.");
+        return;
+    }
+
+    var scraper = new CsfdScraper(tmdbBearerToken);
+    var movieId = 1580037;
+
+    if (args.Length > 0)
+    {
+        if (!int.TryParse(args[0], out movieId) || movieId <= 0)
+        {
+            Console.WriteLine("Please provide a valid numeric CSFD movie ID as the first argument.");
+            return;
         }
     }
 
-    Console.WriteLine($"Done. Stored: {success}. Failed: {failed}.");
-    return;
-}
-
-var scraper = new CsfdScraper(tmdbBearerToken);
-var movieId = 1580037;
-
-if (args.Length > 0)
-{
-    if (!int.TryParse(args[0], out movieId) || movieId <= 0)
-    {
-        Console.WriteLine("Please provide a valid numeric CSFD movie ID as the first argument.");
-        return;
-    }
-}
-
-try
-{
-    var movie = await scraper.ScrapeMovie(movieId);
-    var tmdbMovie = await scraper.ResolveTmdb(movie);
-    
-    // Merge the movies
-    var mergedMovie = movie.Merge(tmdbMovie);
-    
-    // Store in database
     try
     {
-        await databaseService.StoreMovie(mergedMovie);
-        Console.WriteLine("✓ Movie stored in MongoDB");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠ Failed to store movie in database: {ex.Message}");
-    }
+        var movie = await scraper.ScrapeMovie(movieId);
+        var tmdbMovie = await scraper.ResolveTmdb(movie);
+
+        // Merge the movies
+        var mergedMovie = movie.Merge(tmdbMovie);
+        
+        // Store in database
+        try
+        {
+            await databaseService.StoreMovie(mergedMovie);
+            Console.WriteLine("✓ Movie stored in MongoDB");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Failed to store movie in database: {ex.Message}");
+        }
 
     Console.WriteLine("--------------------------------------------------");
     Console.WriteLine($"CSFD SOURCE ID: {movieId}");
@@ -224,13 +233,21 @@ static async Task PrintCinemaSchedule(string[] args)
     Uri? pageUri = null;
     if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
     {
-        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute))
+        // Only accept absolute http(s) URIs. On Unix a leading slash can produce a file:// URI
+        // which HttpClient doesn't support, so treat other inputs as relative CSFD paths.
+        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
         {
             pageUri = absolute;
         }
         else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
         {
             pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+        }
+        else
+        {
+            // Fallback: construct relative URI against the CSFD base
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), remainingArgs[1]);
         }
     }
 

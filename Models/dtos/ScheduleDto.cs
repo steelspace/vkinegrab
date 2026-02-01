@@ -3,7 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace vkinegrab.Models.Dtos;
 
-internal class ScheduleDto
+public class ScheduleDto
 {
     [BsonId]
     public ObjectId Id { get; set; }
@@ -22,9 +22,9 @@ internal class ScheduleDto
 
     [BsonElement("stored_at")]
     public DateTime StoredAt { get; set; }
-}
+} 
 
-internal class PerformanceDto
+public class PerformanceDto
 {
     [BsonElement("venue_id")]
     public int VenueId { get; set; }
@@ -34,9 +34,9 @@ internal class PerformanceDto
 
     [BsonElement("showtimes")]
     public List<ShowtimeDto> Showtimes { get; set; } = new();
-}
+} 
 
-internal class CinemaBadgeDto
+public class CinemaBadgeDto
 {
     [BsonElement("kind")]
     public BadgeKind Kind { get; set; }
@@ -46,9 +46,9 @@ internal class CinemaBadgeDto
 
     [BsonElement("description")]
     public string? Description { get; set; }
-}
+} 
 
-internal class ShowtimeDto
+public class ShowtimeDto
 {
     [BsonElement("start_at")]
     public DateTime StartAt { get; set; }
@@ -61,13 +61,15 @@ internal class ShowtimeDto
 
     [BsonElement("is_past")]
     public bool IsPast { get; set; }
-}
+} 
 
 internal static class ScheduleDtoExtensions
 {
     public static ScheduleDto ToDto(this Schedule schedule)
         => new ScheduleDto
         {
+            // Ensure a fresh, non-zero ObjectId so upserts don't try to insert the zero ObjectId repeatedly
+            Id = ObjectId.GenerateNewId(),
             Date = schedule.Date.ToDateTime(new TimeOnly(0, 0), DateTimeKind.Utc),
             MovieId = schedule.MovieId,
             MovieTitle = schedule.MovieTitle,

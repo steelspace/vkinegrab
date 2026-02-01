@@ -21,21 +21,45 @@ public class DatabaseService
         moviesCollection = database.GetCollection<MovieDto>("movies");
         schedulesCollection = database.GetCollection<ScheduleDto>("schedule");
         
-        // Create index on CsfdId for faster lookups
-        var indexOptions = new CreateIndexOptions { Unique = true };
-        var indexModel = new CreateIndexModel<MovieDto>(
-            Builders<MovieDto>.IndexKeys.Ascending(m => m.CsfdId),
-            indexOptions
-        );
-        moviesCollection.Indexes.CreateOne(indexModel);
+        InitializeIndexes();
+    }
 
-        // Create compound unique index on date + movie_id for schedules
-        var scheduleIndexOptions = new CreateIndexOptions { Unique = true };
-        var scheduleIndex = new CreateIndexModel<ScheduleDto>(
-            Builders<ScheduleDto>.IndexKeys.Ascending(s => s.Date).Ascending(s => s.MovieId),
-            scheduleIndexOptions
-        );
-        schedulesCollection.Indexes.CreateOne(scheduleIndex);
+    // Internal constructor for tests to inject a mock database
+    internal DatabaseService(IMongoDatabase database)
+    {
+        this.database = database;
+        moviesCollection = database.GetCollection<MovieDto>("movies");
+        schedulesCollection = database.GetCollection<ScheduleDto>("schedule");
+
+        InitializeIndexes();
+    }
+
+    private void InitializeIndexes()
+    {
+        try
+        {
+            // Create index on CsfdId for faster lookups
+            var indexOptions = new CreateIndexOptions { Unique = true };
+            var indexModel = new CreateIndexModel<MovieDto>(
+                Builders<MovieDto>.IndexKeys.Ascending(m => m.CsfdId),
+                indexOptions
+            );
+            moviesCollection.Indexes.CreateOne(indexModel);
+
+            // Create compound unique index on date + movie_id for schedules
+            var scheduleIndexOptions = new CreateIndexOptions { Unique = true };
+            var scheduleIndex = new CreateIndexModel<ScheduleDto>(
+                Builders<ScheduleDto>.IndexKeys.Ascending(s => s.Date).Ascending(s => s.MovieId),
+                scheduleIndexOptions
+            );
+            schedulesCollection.Indexes.CreateOne(scheduleIndex);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the entire application during initialization just because MongoDB is unreachable.
+            // This typically happens when DNS/network prevents connecting to the configured host.
+            Console.WriteLine($"⚠ Warning: Unable to initialize MongoDB indexes: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -95,10 +119,17 @@ public class DatabaseService
                 Builders<ScheduleDto>.Filter.Eq(s => s.MovieId, dto.MovieId)
             );
 
-            await schedulesCollection.ReplaceOneAsync(
+            var update = Builders<ScheduleDto>.Update
+                .Set(s => s.Date, dto.Date)
+                .Set(s => s.MovieId, dto.MovieId)
+                .Set(s => s.MovieTitle, dto.MovieTitle)
+                .Set(s => s.Performances, dto.Performances)
+                .Set(s => s.StoredAt, dto.StoredAt);
+
+            await schedulesCollection.UpdateOneAsync(
                 filter,
-                dto,
-                new ReplaceOptions { IsUpsert = true }
+                update,
+                new UpdateOptions { IsUpsert = true }
             );
         }
         catch (MongoException ex)

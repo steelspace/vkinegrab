@@ -6,7 +6,7 @@ using vkinegrab.Models;
 
 namespace vkinegrab.Services.Csfd;
 
-public class PerformancesService
+public class PerformancesService : IPerformancesService
 {
     private static readonly Uri DefaultBaseUri = new("https://www.csfd.cz/");
     private static readonly Regex CinemaIdRegex = new("cinema-(\\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);

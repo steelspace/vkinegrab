@@ -7,7 +7,7 @@ using vkinegrab.Services.Tmdb;
 
 namespace vkinegrab.Services.Csfd;
 
-public class CsfdScraper
+public class CsfdScraper : ICsfdScraper
 {
     private static readonly HttpClient client;
     private static readonly HttpClient tmdbClient;

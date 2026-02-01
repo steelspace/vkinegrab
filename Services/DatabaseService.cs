@@ -8,7 +8,7 @@ namespace vkinegrab.Services;
 /// <summary>
 /// Service for storing and retrieving movie data from MongoDB.
 /// </summary>
-public class DatabaseService
+public class DatabaseService : IDatabaseService
 {
     private readonly IMongoDatabase database;
     private readonly IMongoCollection<MovieDto> moviesCollection;
@@ -93,10 +93,33 @@ public class DatabaseService
 
         try
         {
-            await moviesCollection.ReplaceOneAsync(
-                Builders<MovieDto>.Filter.Eq(m => m.CsfdId, movie.CsfdId),
-                storedMovie,
-                new ReplaceOptions { IsUpsert = true }
+            var filter = Builders<MovieDto>.Filter.Eq(m => m.CsfdId, movie.CsfdId);
+            var update = Builders<MovieDto>.Update
+                .Set(m => m.CsfdId, storedMovie.CsfdId)
+                .Set(m => m.TmdbId, storedMovie.TmdbId)
+                .Set(m => m.ImdbId, storedMovie.ImdbId)
+                .Set(m => m.Title, storedMovie.Title)
+                .Set(m => m.OriginalTitle, storedMovie.OriginalTitle)
+                .Set(m => m.Year, storedMovie.Year)
+                .Set(m => m.Description, storedMovie.Description)
+                .Set(m => m.Origin, storedMovie.Origin)
+                .Set(m => m.Genres, storedMovie.Genres)
+                .Set(m => m.Directors, storedMovie.Directors)
+                .Set(m => m.Cast, storedMovie.Cast)
+                .Set(m => m.PosterUrl, storedMovie.PosterUrl)
+                .Set(m => m.BackdropUrl, storedMovie.BackdropUrl)
+                .Set(m => m.VoteAverage, storedMovie.VoteAverage)
+                .Set(m => m.VoteCount, storedMovie.VoteCount)
+                .Set(m => m.Popularity, storedMovie.Popularity)
+                .Set(m => m.OriginalLanguage, storedMovie.OriginalLanguage)
+                .Set(m => m.Adult, storedMovie.Adult)
+                .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
+                .Set(m => m.StoredAt, storedMovie.StoredAt);
+
+            await moviesCollection.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
             );
         }
         catch (MongoException ex)
@@ -187,6 +210,29 @@ public class DatabaseService
         catch (MongoException ex)
         {
             throw new InvalidOperationException($"Failed to retrieve movie with ID {csfdId}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves all schedules stored in the database and maps them to domain objects.
+    /// </summary>
+    public async Task<IReadOnlyList<Schedule>> GetSchedulesAsync()
+    {
+        try
+        {
+            var dtos = await schedulesCollection.Find(_ => true).ToListAsync();
+            var schedules = dtos.Select(dto =>
+            {
+                var s = dto.ToSchedule();
+                s.Populate(dto);
+                return s;
+            }).ToList();
+
+            return schedules;
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve schedules from database", ex);
         }
     }
 

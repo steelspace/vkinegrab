@@ -140,21 +140,130 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         return;
     }
 
-    var scraper = new CsfdScraper(tmdbBearerToken);
-    var movieId = 1580037;
+if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnoreCase))
+{
+    var remainingArgs = args.Skip(1).ToArray();
+    var period = remainingArgs.Length > 0 && !string.IsNullOrWhiteSpace(remainingArgs[0]) ? remainingArgs[0] : "all";
 
-    if (args.Length > 0)
+    Uri? pageUri = null;
+    if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
     {
-        if (!int.TryParse(args[0], out movieId) || movieId <= 0)
+        // Only accept absolute http(s) URIs. On Unix a leading slash can produce a file:// URI
+        // which HttpClient doesn't support, so treat other inputs as relative CSFD paths.
+        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
         {
-            Console.WriteLine("Please provide a valid numeric CSFD movie ID as the first argument.");
-            return;
+            pageUri = absolute;
+        }
+        else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
+        {
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+        }
+        else
+        {
+            // Fallback: construct relative URI against the CSFD base
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), remainingArgs[1]);
         }
     }
 
+    var performancesService = new PerformancesService();
+    IReadOnlyList<Schedule> schedules;
     try
     {
-        var movie = await scraper.ScrapeMovie(movieId);
+        schedules = await performancesService.GetSchedules(pageUri, period);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to download schedules: {ex.Message}");
+        return;
+    }
+
+    if (schedules.Count == 0)
+    {
+        Console.WriteLine("No schedules to grab.");
+        return;
+    }
+
+    Console.WriteLine($"Storing {schedules.Count} schedules to MongoDB (collection 'schedule')...");
+    var success = 0;
+    var failed = 0;
+
+    foreach (var s in schedules)
+    {
+        try
+        {
+            await databaseService.StoreSchedule(s);
+            success++;
+        }
+        catch (Exception ex)
+        {
+            failed++;
+            Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date:yyyy-MM-dd}: {ex}");
+        }
+    }
+
+    Console.WriteLine($"Done storing schedules. Stored: {success}. Failed: {failed}.");
+
+    var csfdScraper = new CsfdScraper(tmdbBearerToken);
+    var collector = new MovieCollectorService(performancesService, csfdScraper, databaseService);
+
+    Console.WriteLine("Collecting movies from newly grabbed schedules...");
+    var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+    Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failedMovies}.");
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.OrdinalIgnoreCase))
+{
+    var remainingArgs = args.Skip(1).ToArray();
+    var period = remainingArgs.Length > 0 && !string.IsNullOrWhiteSpace(remainingArgs[0]) ? remainingArgs[0] : "today";
+
+    Uri? pageUri = null;
+    if (remainingArgs.Length > 1 && !string.IsNullOrWhiteSpace(remainingArgs[1]))
+    {
+        if (Uri.TryCreate(remainingArgs[1], UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
+        {
+            pageUri = absolute;
+        }
+        else if (Uri.TryCreate(remainingArgs[1], UriKind.Relative, out var relative))
+        {
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), relative);
+        }
+        else
+        {
+            pageUri = new Uri(new Uri("https://www.csfd.cz/"), remainingArgs[1]);
+        }
+    }
+
+    var csfdScraper = new CsfdScraper(tmdbBearerToken);
+    var performancesService = new PerformancesService();
+    var collector = new MovieCollectorService(performancesService, csfdScraper, databaseService);
+
+    Console.WriteLine("Collecting movies from stored schedules...");
+    var schedules = await databaseService.GetSchedulesAsync();
+    var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+    Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
+var scraper = new CsfdScraper(tmdbBearerToken);
+var movieId = 1580037;
+
+if (args.Length > 0)
+{
+    if (!int.TryParse(args[0], out movieId) || movieId <= 0)
+    {
+        Console.WriteLine("Please provide a valid numeric CSFD movie ID as the first argument.");
+        return;
+    }
+}
+
+try
+{
+    var movie = await scraper.ScrapeMovie(movieId);
         var tmdbMovie = await scraper.ResolveTmdb(movie);
 
         // Merge the movies

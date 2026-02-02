@@ -34,6 +34,13 @@ internal sealed class ImdbTitleMatcher
             }
         }
 
+        // Prioritize English titles
+        var englishTitle = GetLocalizedTitle(movie, "angličtina", "English", "USA", "United States", "UK", "United Kingdom");
+        if (!string.IsNullOrWhiteSpace(englishTitle))
+        {
+            candidates.Insert(0, englishTitle);
+        }
+
         candidates.AddRange(movie.LocalizedTitles.Values);
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

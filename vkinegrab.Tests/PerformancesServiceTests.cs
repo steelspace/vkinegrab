@@ -73,6 +73,57 @@ namespace vkinegrab.Tests
 
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
+            // ---- new tests for badge-aware merging ----
+            var htmlBadge = @"
+<html>
+  <body>
+    <section id=""cinema-1"" class=""updated-box-cinema"">
+      <a href=""/kino/1-praha/"">Cinema One</a>
+      <div class=""update-box-sub-header"">1.2.2026</div>
+      <table class=""cinema-table"">
+        <tr>
+          <td class=""name""><span class=""cinema-icon"">Gold Class</span><a href=""/film/200/"">Movie X</a></td>
+          <td class=""td-title""><span>3D</span></td>
+          <td class=""td-time"">10:00</td>
+        </tr>
+        <tr>
+          <td class=""name""><span class=""cinema-icon"">Dolby Atmos sál</span><a href=""/film/200/"">Movie X</a></td>
+          <td class=""td-title""><span>T</span></td>
+          <td class=""td-time"">12:00</td>
+        </tr>
+        <!-- same badge as first row, different time -> should merge -->
+        <tr>
+          <td class=""name""><span class=""cinema-icon"">Gold Class</span><a href=""/film/200/"">Movie X</a></td>
+          <td class=""td-title""><span>3D</span></td>
+          <td class=""td-time"">11:00</td>
+        </tr>
+      </table>
+    </section>
+  </body>
+</html>
+";
+
+            var handler2 = new FakeHttpMessageHandler(htmlBadge);
+            var client2 = new HttpClient(handler2) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
+            var service2 = new PerformancesService(client2, new System.Uri("https://www.csfd.cz/"));
+
+            var (schedulesBadge, venuesBadge) = await service2.GetSchedulesWithVenues(null, "all");
+            // Find schedule for Movie X (id 200)
+            var scheduleX = schedulesBadge.First(s => s.MovieId == 200);
+
+            // Expect two performances for Venue 1: one for Gold Class (merged times 10:00,11:00), one for Dolby Atmos (12:00)
+            var performancesVenue1 = scheduleX.Performances.Where(p => p.VenueId == 1).ToList();
+            Assert.Equal(2, performancesVenue1.Count);
+
+            var goldPerf = performancesVenue1.First(p => p.Showtimes.Any(st => st.StartAt.Hour == 10));
+            var goldTimes = goldPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm")).OrderBy(t => t).ToList();
+            Assert.Equal(new[] { "10:00", "11:00" }, goldTimes);
+
+            var dolbyPerf = performancesVenue1.First(p => p.Showtimes.Any(st => st.StartAt.Hour == 12));
+            var dolbyTimes = dolbyPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm")).OrderBy(t => t).ToList();
+            Assert.Equal(new[] { "12:00" }, dolbyTimes);
+
+
             // additional regression test: even if the service is constructed with a file:// base, we should resolve hrefs to https
             var fileClient = new HttpClient(new FakeHttpMessageHandler(html)) { BaseAddress = new System.Uri("file:///") };
             var fileService = new PerformancesService(fileClient, new System.Uri("file:///"));

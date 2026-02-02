@@ -228,7 +228,10 @@ public class PerformancesService : IPerformancesService
                     schedules[key] = schedule;
                 }
 
-                var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId);
+                // compute badge set for the new performance (use first showtime's badges)
+                var performanceBadgeSet = BadgeSet.From(performance.Showtimes.FirstOrDefault()?.Badges);
+
+                var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId && BadgeSet.From(p.Showtimes.FirstOrDefault()?.Badges).Equals(performanceBadgeSet));
                 if (existing != null)
                 {
                     // merge showtimes uniquely (showtimes now contain their own badges)

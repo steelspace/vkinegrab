@@ -45,6 +45,14 @@ namespace vkinegrab.Services
             services.AddScoped<MovieCollectorService>();
             services.AddScoped<SchedulesStoreService>();
 
+            // Test utilities
+            services.AddHttpClient<TestScraper>(client =>
+            {
+                // Use a reasonable user-agent when hitting CSFD pages for tests
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "vkinegrab-test/1.0");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            });
+
             return services;
         }
     }

@@ -3,7 +3,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using vkinegrab.Models;
 using vkinegrab.Services;
-using vkinegrab.Services.Csfd; 
+using vkinegrab.Services.Csfd;
+using vkinegrab; 
 
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets("vkinegrab-tmdb-secrets")
@@ -60,7 +61,11 @@ catch (Exception ex)
 if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
 {
     var testArgs = args.Skip(1).ToArray();
-    await vkinegrab.TestScraper.Run(testArgs);
+    using var scopeTest = provider.CreateScope();
+    var testRunner = scopeTest.ServiceProvider.GetRequiredService<TestScraper>();
+
+    var maxMovies = testArgs.Length > 0 && int.TryParse(testArgs[0], out var argMax) && argMax > 0 ? argMax : 100;
+    await testRunner.RunTests(maxMovies);
     return;
 }
 
@@ -72,7 +77,8 @@ if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreC
 
 if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
 {
-    var tester = new vkinegrab.TestScraper(tmdbBearerToken);
+    using var scopeShowtime = provider.CreateScope();
+    var tester = scopeShowtime.ServiceProvider.GetRequiredService<TestScraper>();
     var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
     var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
     var maxMovies = args.Length > 3 && int.TryParse(args[3], out var parsedMax) && parsedMax > 0 ? parsedMax : 5;

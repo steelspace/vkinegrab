@@ -3,20 +3,25 @@ using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
 using vkinegrab.Models;
+using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
 
 namespace vkinegrab;
 
 public class TestScraper
 {
-    private readonly CsfdScraper scraper;
+    private readonly ICsfdScraper scraper;
+    private readonly IPerformancesService performancesService;
     private readonly HttpClient client;
 
-    public TestScraper(string tmdbBearerToken)
+    public TestScraper(HttpClient client, ICsfdScraper scraper, IPerformancesService performancesService)
     {
-        scraper = new CsfdScraper(tmdbBearerToken);
-        client = new HttpClient();
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        this.client = client ?? throw new ArgumentNullException(nameof(client));
+        this.scraper = scraper ?? throw new ArgumentNullException(nameof(scraper));
+        this.performancesService = performancesService ?? throw new ArgumentNullException(nameof(performancesService));
+
+        // Ensure reasonable request headers for manual test HTTP calls
+        this.client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
     }
 
     public async Task<List<int>> GetMovieIdsFromTvSchedule()
@@ -207,8 +212,7 @@ public class TestScraper
         IReadOnlyList<Schedule> schedules;
         try
         {
-            var service = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
-            schedules = await service.GetSchedules(requestUri, period);
+            schedules = await performancesService.GetSchedules(requestUri, period);
         }
         catch (Exception ex)
         {
@@ -326,40 +330,9 @@ public class TestScraper
         Console.WriteLine("(*) indicates an active ticket link.");
     }
 
-    public static async Task Run(string[] args)
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddUserSecrets<Program>()
-            .Build();
+    // Legacy helper removed: TestScraper should be resolved from DI in Program.cs to allow configuration and testing.
+    // Use the DI-resolved TestScraper instance to call RunTests or RunCinemaShowtimes from Program.
 
-        var tmdbBearerToken = configuration["Tmdb:BearerToken"];
-        
-        if (string.IsNullOrWhiteSpace(tmdbBearerToken))
-        {
-            Console.WriteLine("ERROR: TMDB Bearer Token not found!");
-            Console.WriteLine("Please set it using:");
-            Console.WriteLine("  dotnet user-secrets set \"Tmdb:BearerToken\" \"your-bearer-token-here\"");
-            return;
-        }
-
-        var tester = new TestScraper(tmdbBearerToken);
-        if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
-        {
-            var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
-            var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
-            var limit = args.Length > 3 && int.TryParse(args[3], out var parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
-            await tester.RunCinemaShowtimes(period, pageUrl, limit);
-            return;
-        }
-
-        var maxMovies = 100;
-        if (args.Length > 0 && int.TryParse(args[0], out var argMax) && argMax > 0)
-        {
-            maxMovies = argMax;
-        }
-
-        await tester.RunTests(maxMovies);
-    }
 }
 
 public class TestResult

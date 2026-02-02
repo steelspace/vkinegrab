@@ -34,7 +34,7 @@ namespace vkinegrab.Tests
             var csfdScraper = new FakeCsfdScraper();
 
             var perfService = new FakePerformancesService(schedules);
-            var collector = new MovieCollectorService(perfService, csfdScraper, dbService);
+            var collector = new MovieCollectorService(csfdScraper, dbService);
 
             var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 

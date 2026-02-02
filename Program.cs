@@ -174,7 +174,7 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     }
 
     var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var collector = new MovieCollectorService(performancesService, csfdScraper, databaseService);
+    var collector = new MovieCollectorService(csfdScraper, databaseService);
 
     Console.WriteLine("Collecting movies from newly grabbed schedules...");
     var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
@@ -270,7 +270,7 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
 
     var csfdScraper = new CsfdScraper(tmdbBearerToken);
     var performancesService = new PerformancesService();
-    var collector = new MovieCollectorService(performancesService, csfdScraper, databaseService);
+    var collector = new MovieCollectorService(csfdScraper, databaseService);
 
     Console.WriteLine("Collecting movies from stored schedules...");
     var schedules = await databaseService.GetSchedulesAsync();

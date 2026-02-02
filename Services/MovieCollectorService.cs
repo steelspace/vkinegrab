@@ -5,13 +5,11 @@ namespace vkinegrab.Services;
 
 public class MovieCollectorService
 {
-    private readonly IPerformancesService performancesService;
     private readonly ICsfdScraper csfdScraper;
     private readonly IDatabaseService databaseService;
 
-    public MovieCollectorService(IPerformancesService performancesService, ICsfdScraper csfdScraper, IDatabaseService databaseService)
+    public MovieCollectorService(ICsfdScraper csfdScraper, IDatabaseService databaseService)
     {
-        this.performancesService = performancesService;
         this.csfdScraper = csfdScraper;
         this.databaseService = databaseService;
     }

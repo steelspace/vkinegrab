@@ -9,32 +9,37 @@ namespace vkinegrab.Services.Csfd;
 
 public class CsfdScraper : ICsfdScraper
 {
-    private static readonly HttpClient client;
-    private static readonly HttpClient tmdbClient;
-    private static readonly ImdbResolver imdbResolver;
-    private readonly TmdbResolver tmdbResolver;
+    private readonly HttpClient client;
+    private readonly ITmdbResolver tmdbResolver;
+    private readonly IImdbResolver imdbResolver;
 
-    static CsfdScraper()
+    public CsfdScraper(HttpClient client, ITmdbResolver tmdbResolver, IImdbResolver imdbResolver)
     {
-        // 1. Setup HttpClient with realistic headers (Crucial for CSFD)
-        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        client = new HttpClient(handler);
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
-        imdbResolver = new ImdbResolver(client);
-        
-        // Setup separate HttpClient for TMDB API
-        tmdbClient = new HttpClient();
+        this.client = client ?? throw new ArgumentNullException(nameof(client));
+        this.tmdbResolver = tmdbResolver ?? throw new ArgumentNullException(nameof(tmdbResolver));
+        this.imdbResolver = imdbResolver ?? throw new ArgumentNullException(nameof(imdbResolver));
     }
 
-    public CsfdScraper(string? tmdbBearerToken = null)
+    // Convenience ctor kept for backwards compatibility when not using DI
+    internal CsfdScraper(string? tmdbBearerToken = null)
     {
         if (string.IsNullOrWhiteSpace(tmdbBearerToken))
         {
             throw new ArgumentException("TMDB Bearer Token is required. Set it using: dotnet user-secrets set \"Tmdb:BearerToken\" \"your-token\"", nameof(tmdbBearerToken));
         }
-        tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
+
+        // 1. Setup HttpClient with realistic headers (Crucial for CSFD)
+        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
+        var csfdClient = new HttpClient(handler);
+        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+
+        var tmdbClient = new HttpClient();
+
+        this.client = csfdClient;
+        this.imdbResolver = new ImdbResolver(csfdClient);
+        this.tmdbResolver = new TmdbResolver(tmdbClient);
     }
 
     public async Task<CsfdMovie> ScrapeMovie(int movieId)

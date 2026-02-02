@@ -208,7 +208,6 @@ public class PerformancesService : IPerformancesService
                 }
 
                 performance.VenueId = cinemaId;
-                performance.VenueUrl = venueUrl;
 
                 var key = (showDate, performance.MovieId);
                 if (!schedules.TryGetValue(key, out var schedule))

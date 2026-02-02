@@ -225,11 +225,7 @@ if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgn
             var venue = await csfdScraper.ScrapeVenue(venueId);
             await databaseService.StoreVenue(venue);
 
-            // If scraper discovers the canonical URL, store it back into schedules for future reference
-            if (!string.IsNullOrWhiteSpace(venue.DetailUrl))
-            {
-                await databaseService.AddVenueUrlToSchedulesAsync(venueId, venue.DetailUrl);
-            }
+
 
             Console.WriteLine($"Stored venue {venueId}: {venue.Name}");
             fetched++;

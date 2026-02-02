@@ -29,9 +29,6 @@ public class PerformanceDto
     [BsonElement("venue_id")]
     public int VenueId { get; set; }
 
-    [BsonElement("venue_url")]
-    public string? VenueUrl { get; set; }
-
     [BsonElement("badges")]
     public List<CinemaBadgeDto> Badges { get; set; } = new();
 
@@ -79,7 +76,6 @@ internal static class ScheduleDtoExtensions
             Performances = schedule.Performances.Select(p => new PerformanceDto
             {
                 VenueId = p.VenueId,
-                VenueUrl = p.VenueUrl,
                 Badges = p.Badges.Select(b => new CinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList(),
                 Showtimes = p.Showtimes.Select(s => new ShowtimeDto { StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), TicketsAvailable = s.TicketsAvailable, TicketUrl = s.TicketUrl }).ToList()
             }).ToList(),
@@ -101,8 +97,7 @@ internal static class ScheduleDtoExtensions
         {
             var perf = new Performance
             {
-                VenueId = p.VenueId,
-                VenueUrl = p.VenueUrl
+                VenueId = p.VenueId
             };
 
             foreach (var b in p.Badges)

@@ -6,7 +6,6 @@ public class Performance
     public string MovieTitle { get; set; } = string.Empty;
     public string? MovieUrl { get; set; }
     public int VenueId { get; set; }
-    public string? VenueUrl { get; set; }
     public List<CinemaBadge> Badges { get; } = new();
     public List<Showtime> Showtimes { get; } = new();
 }

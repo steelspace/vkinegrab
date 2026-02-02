@@ -323,27 +323,7 @@ public class DatabaseService : IDatabaseService
         }
     }
 
-    public async Task AddVenueUrlToSchedulesAsync(int venueId, string venueUrl)
-    {
-        try
-        {
-            var filter = Builders<ScheduleDto>.Filter.ElemMatch(s => s.Performances, p => p.VenueId == venueId);
-            var update = Builders<ScheduleDto>.Update.Set("performances.$[elem].venue_url", venueUrl);
 
-            var arrayFilter = new List<ArrayFilterDefinition>
-            {
-                new BsonDocumentArrayFilterDefinition<BsonDocument>(new BsonDocument("elem.venue_id", venueId))
-            };
-
-            var updateOptions = new UpdateOptions { ArrayFilters = arrayFilter };
-
-            await schedulesCollection.UpdateManyAsync(filter, update, updateOptions);
-        }
-        catch (MongoException ex)
-        {
-            throw new InvalidOperationException($"Failed to update schedules with venue URL for venue {venueId}", ex);
-        }
-    }
 
     /// <summary>
     /// Tests the MongoDB connection.

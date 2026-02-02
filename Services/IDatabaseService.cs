@@ -22,5 +22,8 @@ namespace vkinegrab.Services
 
         // Deletes all stored schedules. Use when re-grabbing fresh schedules.
         Task ClearSchedulesAsync();
+
+        // Diagnostics
+        Task<bool> TestConnection();
     }
 }

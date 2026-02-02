@@ -45,8 +45,8 @@ var services = new ServiceCollection();
 services.AddVkinegrabServices(mongoConnectionString, tmdbBearerToken);
 var provider = services.BuildServiceProvider();
 
-// Resolve database service (use concrete type to access diagnostics like TestConnection)
-var databaseService = provider.GetRequiredService<DatabaseService>();
+// Resolve database service (use the interface)
+var databaseService = provider.GetRequiredService<IDatabaseService>();
 
 // Test MongoDB connection
 try

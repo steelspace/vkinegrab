@@ -191,6 +191,16 @@ namespace vkinegrab.Tests
             {
                 return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
             }
+
+            public Task<Venue> ScrapeVenue(int venueId)
+            {
+                return Task.FromResult(new Venue { Id = venueId, Name = string.Empty });
+            }
+
+            public Task<Venue> ScrapeVenue(string url)
+            {
+                return Task.FromResult(new Venue { Id = 0, DetailUrl = url });
+            }
         }
 
         private class SpyCsfdScraper : ICsfdScraper
@@ -229,6 +239,16 @@ namespace vkinegrab.Tests
                     ReleaseDate = DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd")
                 };
                 return Task.FromResult<vkinegrab.Models.TmdbMovie?>(tmdb);
+            }
+
+            public Task<Venue> ScrapeVenue(int venueId)
+            {
+                return Task.FromResult(new Venue { Id = venueId, Name = string.Empty });
+            }
+
+            public Task<Venue> ScrapeVenue(string url)
+            {
+                return Task.FromResult(new Venue { Id = 0, DetailUrl = url });
             }
         }
     }

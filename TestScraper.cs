@@ -207,7 +207,7 @@ public class TestScraper
         IReadOnlyList<Schedule> schedules;
         try
         {
-            var service = new PerformancesService();
+            var service = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
             schedules = await service.GetSchedules(requestUri, period);
         }
         catch (Exception ex)

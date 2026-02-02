@@ -99,7 +99,7 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         }
     }
 
-    var performancesService = new PerformancesService();
+    var performancesService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
     var storeService = new SchedulesStoreService(performancesService, databaseService);
     var (schedules, storedSchedules, failedSchedules, storedVenues, failedVenues) = await storeService.StoreSchedulesAndVenuesAsync(pageUri, period);
 
@@ -145,7 +145,7 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
         }
     }
 
-    var performancesService = new PerformancesService();
+    var performancesService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
     var storeService = new SchedulesStoreService(performancesService, databaseService);
 
     // Fetch + store in one step and obtain schedules for the movie collector (avoids double-fetch)
@@ -265,7 +265,7 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
     }
 
     var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var performancesService = new PerformancesService();
+    var performancesService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
     var collector = new MovieCollectorService(csfdScraper, databaseService);
 
     Console.WriteLine("Collecting movies from stored schedules...");
@@ -387,7 +387,7 @@ static async Task PrintCinemaSchedule(string[] args)
         }
     }
 
-    var performancesService = new PerformancesService();
+    var performancesService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
     var schedules = await performancesService.GetSchedules(pageUri, period);
 
     Console.WriteLine($"Fetched {schedules.Count} schedules for period '{period}'.");

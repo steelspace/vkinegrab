@@ -21,7 +21,7 @@ public class PerformancesService : IPerformancesService
 
     private readonly ICsfdRowParser rowParser;
 
-    public PerformancesService(HttpClient? httpClient = null, Uri? baseUri = null)
+    internal PerformancesService(HttpClient? httpClient = null, Uri? baseUri = null)
         : this(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), httpClient, baseUri)
     {
     }

@@ -1,11 +1,7 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Mongo2Go;
 using vkinegrab.Models;
 using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
-using Xunit;
 
 namespace vkinegrab.Tests
 {

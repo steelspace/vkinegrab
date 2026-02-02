@@ -62,6 +62,19 @@ namespace vkinegrab.Tests
 
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
+            // additional regression test: even if the service is constructed with a file:// base, we should resolve hrefs to https
+            var fileClient = new HttpClient(new FakeHttpMessageHandler(html)) { BaseAddress = new System.Uri("file:///") };
+            var fileService = new PerformancesService(fileClient, new System.Uri("file:///"));
+            var (s2, venues2) = await fileService.GetSchedulesWithVenues(null, "all");
+            var v1file = venues2.First(v => v.Id == 1);
+
+            // Debug: call private ToAbsoluteUrl via reflection to see how it resolves
+            var method = typeof(PerformancesService).GetMethod("ToAbsoluteUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var resolved = (string?)method?.Invoke(null, new object?[] { "/kino/1-praha/", new System.Uri("file:///kino/1-praha/?period=all") });
+            Assert.Equal("https://www.csfd.cz/kino/1-praha/", resolved);
+
+            Assert.StartsWith("https://www.csfd.cz/", v1file.DetailUrl);
+
             // should have schedules for three films
             Assert.Equal(3, schedules.Select(s => s.MovieId).Distinct().Count());
 
@@ -72,10 +85,12 @@ namespace vkinegrab.Tests
             // ensure names and addresses were extracted where available
             var v1 = venues.First(v => v.Id == 1);
             Assert.Contains("Cinema One", v1.Name);
+            Assert.Equal("https://www.csfd.cz/kino/1-praha/", v1.DetailUrl);
 
             var v2 = venues.First(v => v.Id == 2);
             Assert.Contains("Cinema Two", v2.Name);
             Assert.Equal("Some street 5", v2.Address);
+            Assert.Equal("https://www.csfd.cz/kino/2-ostrava/", v2.DetailUrl);
         }
 
         private class FakeHttpMessageHandler : HttpMessageHandler

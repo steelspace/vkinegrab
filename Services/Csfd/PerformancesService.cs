@@ -463,15 +463,26 @@ public class PerformancesService : IPerformancesService
 
         if (Uri.TryCreate(href, UriKind.Absolute, out var absolute))
         {
-            return absolute.ToString();
+            // Only accept explicit http(s) absolute URIs. A leading slash on Unix-like systems
+            // can be parsed as an absolute file path (file:///...), which we should treat as a
+            // relative CSFD path instead.
+            if (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps)
+            {
+                return absolute.ToString();
+            }
         }
 
+        // protocol-relative URLs (e.g. //img.csfd...)
         if (href.StartsWith("//", StringComparison.Ordinal))
         {
-            return requestUri.Scheme + ":" + href;
+            // If requestUri has no scheme or is a file URI, fall back to https
+            var scheme = (requestUri?.IsAbsoluteUri == true && requestUri.Scheme != Uri.UriSchemeFile) ? requestUri.Scheme : "https";
+            return scheme + ":" + href;
         }
 
-        var baseUri = requestUri;
+        // If requestUri is not absolute or is a file:// URI (e.g. when base was incorrect), fall back to the canonical CSFD base
+        var baseUri = (requestUri?.IsAbsoluteUri == true && requestUri.Scheme != Uri.UriSchemeFile) ? requestUri : DefaultBaseUri;
+
         if (!baseUri.ToString().EndsWith("/", StringComparison.Ordinal))
         {
             baseUri = new Uri(baseUri, ".");

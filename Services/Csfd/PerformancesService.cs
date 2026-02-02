@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -18,8 +19,16 @@ public class PerformancesService : IPerformancesService
     private readonly HttpClient httpClient;
     private readonly Uri baseUri;
 
+    private readonly ICsfdRowParser rowParser;
+
     public PerformancesService(HttpClient? httpClient = null, Uri? baseUri = null)
+        : this(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), httpClient, baseUri)
     {
+    }
+
+    public PerformancesService(ICsfdRowParser rowParser, HttpClient? httpClient = null, Uri? baseUri = null)
+    {
+        this.rowParser = rowParser ?? throw new ArgumentNullException(nameof(rowParser));
         this.baseUri = baseUri ?? DefaultBaseUri;
         this.httpClient = httpClient ?? CreateDefaultClient(this.baseUri);
         if (this.httpClient.BaseAddress is null)
@@ -257,158 +266,10 @@ public class PerformancesService : IPerformancesService
 
     private Performance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
     {
-        var movieLink = row.SelectSingleNode(".//td[contains(@class,'name')]//a[contains(@href,'/film/')]");
-        if (movieLink == null)
-        {
-            return null;
-        }
-
-        var movieTitle = Clean(movieLink.InnerText);
-        var movieUrl = ToAbsoluteUrl(movieLink.GetAttributeValue("href", string.Empty), requestUri);
-        var movieId = ExtractInt(FilmIdRegex, movieUrl);
-
-        var performance = new Performance
-        {
-            MovieId = movieId,
-            MovieTitle = movieTitle ?? string.Empty,
-            MovieUrl = movieUrl
-        };
-
-        var rowBadges = new List<CinemaBadge>();
-        foreach (var badge in ExtractHallBadges(row))
-        {
-            rowBadges.Add(badge);
-        }
-
-        foreach (var badge in ExtractFormatBadges(row))
-        {
-            rowBadges.Add(badge);
-        }
-
-        var showtimes = ExtractShowtimes(row, date, requestUri);
-        foreach (var showtime in showtimes)
-        {
-            if (performance.Showtimes.All(s => s.StartAt != showtime.StartAt))
-            {
-                // Copy row badges to this showtime
-                foreach (var badge in rowBadges)
-                {
-                    showtime.Badges.Add(new CinemaBadge { Kind = badge.Kind, Code = badge.Code, Description = badge.Description });
-                }
-                performance.Showtimes.Add(showtime);
-            }
-        }
-
-        return performance.Showtimes.Count > 0 ? performance : null;
+        return rowParser.Parse(row, date, requestUri);
     }
 
-    private IEnumerable<CinemaBadge> ExtractHallBadges(HtmlNode row)
-    {
-        var hallSpans = row.SelectNodes(".//td[contains(@class,'name')]//span[contains(@class,'cinema-icon')]");
-        if (hallSpans == null)
-        {
-            yield break;
-        }
 
-        foreach (var span in hallSpans)
-        {
-            var code = Clean(span.InnerText)?.TrimEnd(',') ?? string.Empty;
-            var description = Clean(span.GetAttributeValue("data-tippy-content", string.Empty)) ?? code;
-            yield return new CinemaBadge
-            {
-                Kind = BadgeKind.Hall,
-                Code = code,
-                Description = description
-            };
-        }
-    }
-
-    private IEnumerable<CinemaBadge> ExtractFormatBadges(HtmlNode row)
-    {
-        var formatSpans = row.SelectNodes(".//td[contains(@class,'td-title')]//span");
-        if (formatSpans == null)
-        {
-            yield break;
-        }
-
-        foreach (var span in formatSpans)
-        {
-            var code = Clean(span.InnerText)?.TrimEnd(',') ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                continue;
-            }
-
-            var description = Clean(span.GetAttributeValue("title", string.Empty));
-            yield return new CinemaBadge
-            {
-                Kind = BadgeKind.Format,
-                Code = code,
-                Description = description
-            };
-        }
-    }
-
-    private IEnumerable<Showtime> ExtractShowtimes(HtmlNode row, DateOnly date, Uri requestUri)
-    {
-        var cells = row.SelectNodes(".//td[contains(@class,'td-time')]");
-        if (cells == null)
-        {
-            yield break;
-        }
-
-        var seen = new HashSet<DateTime>();
-        foreach (var cell in cells)
-        {
-            var classValue = cell.GetAttributeValue("class", string.Empty);
-            var classParts = classValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var isPast = classParts.Any(c => c.Equals("td-time-old", StringComparison.OrdinalIgnoreCase));
-            var hasTicketClass = classParts.Any(c => c.Equals("td-buy-ticket", StringComparison.OrdinalIgnoreCase));
-            var anchors = cell.SelectNodes(".//a");
-            if (anchors != null)
-            {
-                foreach (var anchor in anchors)
-                {
-                    var timeText = Clean(anchor.InnerText);
-                    if (!TryParseTime(timeText, out var time))
-                    {
-                        continue;
-                    }
-
-                    var start = date.ToDateTime(time);
-                    if (seen.Add(start))
-                    {
-                        yield return new Showtime
-                        {
-                            StartAt = start,
-                            TicketsAvailable = true,
-                            TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
-                        };
-                    }
-                }
-            }
-
-            var rawText = HtmlEntity.DeEntitize(cell.InnerText ?? string.Empty);
-            foreach (Match match in TimeRegex.Matches(rawText))
-            {
-                if (!TryParseTime(match.Value, out var time))
-                {
-                    continue;
-                }
-
-                var start = date.ToDateTime(time);
-                if (seen.Add(start))
-                {
-                    yield return new Showtime
-                    {
-                        StartAt = start,
-                        TicketsAvailable = hasTicketClass,
-                        TicketUrl = hasTicketClass ? ToAbsoluteUrl(cell.SelectSingleNode(".//a")?.GetAttributeValue("href", string.Empty), requestUri) : null,
-                    };
-                }
-            }
-        }
-    }
 
     private static DateOnly? ParseDate(string? text)
     {

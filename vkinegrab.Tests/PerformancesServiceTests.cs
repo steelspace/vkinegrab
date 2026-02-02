@@ -3,6 +3,8 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using Moq;
+using HtmlAgilityPack;
 using vkinegrab.Services.Csfd;
 using System.Net.Http.Headers;
 using vkinegrab.Models;
@@ -159,6 +161,54 @@ namespace vkinegrab.Tests
             var v3 = venues.First(v => v.Id == 3);
             Assert.Equal("Cinema Three", v3.Name);
             Assert.Equal("https://www.csfd.cz/kino/3-praha/", v3.DetailUrl);
+        }
+
+        [Fact]
+        public async Task GetSchedulesWithVenues_Merges_Performances_When_BadgeSet_Equals()
+        {
+            // Build minimal HTML with two rows so PerformancesService enumerates two rows
+            var html = @"
+<html>
+  <body>
+    <section id=""cinema-1"" class=""updated-box-cinema"">
+      <a href=""/kino/1-praha/"">Cinema One</a>
+      <div class=""update-box-sub-header"">1.2.2026</div>
+      <table class=""cinema-table"">
+        <tr class=""rA""></tr>
+        <tr class=""rB""></tr>
+      </table>
+    </section>
+  </body>
+</html>
+";
+
+            var handler = new FakeHttpMessageHandler(html);
+            var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
+
+            var date = DateOnly.FromDateTime(new DateTime(2026, 2, 1));
+
+            var perfA = new Performance { MovieId = 300, MovieTitle = "M", VenueId = 1 };
+            perfA.Showtimes.Add(new Showtime { StartAt = date.ToDateTime(new TimeOnly(10, 0)), TicketsAvailable = false });
+            perfA.Showtimes.First().Badges.Add(new CinemaBadge { Kind = BadgeKind.Hall, Code = "Gold" });
+
+            var perfB = new Performance { MovieId = 300, MovieTitle = "M", VenueId = 1 };
+            perfB.Showtimes.Add(new Showtime { StartAt = date.ToDateTime(new TimeOnly(11, 0)), TicketsAvailable = false });
+            perfB.Showtimes.First().Badges.Add(new CinemaBadge { Kind = BadgeKind.Hall, Code = "Gold" });
+
+            var mockParser = new Mock<ICsfdRowParser>();
+            mockParser.SetupSequence(p => p.Parse(It.IsAny<HtmlNode>(), It.IsAny<DateOnly>(), It.IsAny<Uri>()))
+                      .Returns(perfA)
+                      .Returns(perfB);
+
+            var service = new PerformancesService(mockParser.Object, client, new System.Uri("https://www.csfd.cz/"));
+            var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
+
+            var schedule = schedules.First(s => s.MovieId == 300);
+            var perfList = schedule.Performances.Where(p => p.VenueId == 1).ToList();
+            Assert.Single(perfList);
+
+            var combinedTimes = perfList[0].Showtimes.Select(st => st.StartAt.ToString("HH:mm")).OrderBy(t => t).ToList();
+            Assert.Equal(new[] { "10:00", "11:00" }, combinedTimes);
         }
 
         private class FakeHttpMessageHandler : HttpMessageHandler

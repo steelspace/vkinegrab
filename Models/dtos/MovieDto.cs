@@ -65,6 +65,9 @@ internal class MovieDto
     [BsonElement("localized_titles")]
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
 
+    [BsonElement("release_date")]
+    public DateTime? ReleaseDate { get; set; }
+
     [BsonElement("stored_at")]
     public DateTime StoredAt { get; set; }
 }

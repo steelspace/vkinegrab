@@ -6,5 +6,6 @@ namespace vkinegrab.Services.Csfd
     {
         Task<CsfdMovie> ScrapeMovie(int movieId);
         Task<TmdbMovie?> ResolveTmdb(CsfdMovie movie);
+        Task<TmdbMovie?> FetchTmdbById(int tmdbId);
     }
 }

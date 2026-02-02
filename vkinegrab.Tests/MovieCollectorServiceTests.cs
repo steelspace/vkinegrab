@@ -48,6 +48,99 @@ namespace vkinegrab.Tests
         }
 
         [Fact]
+        public async Task CollectMoviesFromSchedules_UpdatesRecentlyReleasedMovieDaily()
+        {
+            using var runner = MongoDbRunner.Start();
+            var connectionString = runner.ConnectionString;
+
+            var dbService = new DatabaseService(connectionString);
+
+            // Pre-store a movie that premiered 7 days ago, but last stored 2 days ago -> should be fetched (daily updates)
+            var releaseDate = DateTime.UtcNow.Date.AddDays(-7);
+            var storedAt = DateTime.UtcNow.Date.AddDays(-2);
+            var existingMovie = new Movie { CsfdId = 10, Title = "Recent", ReleaseDate = releaseDate, StoredAt = storedAt };
+            await dbService.StoreMovie(existingMovie);
+
+            var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 10, MovieTitle = "Recent" } };
+
+            var csfdScraper = new FakeCsfdScraper();
+            var collector = new MovieCollectorService(csfdScraper, dbService);
+
+            var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(1, fetched);
+            Assert.Equal(0, skipped);
+            Assert.Equal(0, failed);
+        }
+
+        [Fact]
+        public async Task CollectMoviesFromSchedules_UsesExistingIds_WhenPresent()
+        {
+            using var runner = MongoDbRunner.Start();
+            var connectionString = runner.ConnectionString;
+
+            var dbService = new DatabaseService(connectionString);
+
+            // Pre-store a movie that premiered 7 days ago and has both IDs; make it stale so collector will try to update
+            var releaseDate = DateTime.UtcNow.Date.AddDays(-7);
+            var storedAt = DateTime.UtcNow.Date.AddDays(-10);
+            var existingMovie = new Movie { CsfdId = 20, Title = "WithIds", ReleaseDate = releaseDate, StoredAt = storedAt, TmdbId = 500, ImdbId = "tt500" };
+            await dbService.StoreMovie(existingMovie);
+
+            var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 20, MovieTitle = "WithIds" } };
+
+            var csfdScraper = new SpyCsfdScraper();
+            var collector = new MovieCollectorService(csfdScraper, dbService);
+
+            var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(1, fetched);
+            Assert.Equal(0, skipped);
+            Assert.Equal(0, failed);
+
+            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when existing movie already has TmdbId and ImdbId");
+
+            var stored = await dbService.GetMovie(20);
+            Assert.NotNull(stored);
+            Assert.Equal(500, stored.TmdbId);
+            Assert.Equal("tt500", stored.ImdbId);
+        }
+
+        [Fact]
+        public async Task CollectMoviesFromSchedules_RefreshesTmdbMetadataById()
+        {
+            using var runner = MongoDbRunner.Start();
+            var connectionString = runner.ConnectionString;
+
+            var dbService = new DatabaseService(connectionString);
+
+            // Pre-store a movie with TmdbId and make it stale (older than monthly interval)
+            var releaseDate = DateTime.UtcNow.Date.AddYears(-2);
+            var storedAt = DateTime.UtcNow.Date.AddDays(-40); // older than monthly interval
+            var existingMovie = new Movie { CsfdId = 30, Title = "RefreshMe", ReleaseDate = releaseDate, StoredAt = storedAt, TmdbId = 501 };
+            await dbService.StoreMovie(existingMovie);
+
+            var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 30, MovieTitle = "RefreshMe" } };
+
+            var csfdScraper = new SpyCsfdScraper();
+            var collector = new MovieCollectorService(csfdScraper, dbService);
+
+            var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(1, fetched);
+            Assert.Equal(0, skipped);
+            Assert.Equal(0, failed);
+
+            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when we have TmdbId");
+            Assert.True(csfdScraper.FetchByIdCalled, "FetchTmdbById should be called to refresh metadata by TmdbId");
+
+            var stored = await dbService.GetMovie(30);
+            Assert.NotNull(stored);
+            Assert.Equal(9.1, stored.VoteAverage);
+            Assert.Equal(99.0, stored.Popularity);
+            Assert.Equal("https://image.tmdb.org/t/p/original/fetched.jpg", stored.PosterUrl);
+        }
+        [Fact]
         public async Task StoreMovie_DirectInsert_Works()
         {
             using var runner = MongoDbRunner.Start();
@@ -92,6 +185,50 @@ namespace vkinegrab.Tests
             public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
             {
                 return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
+            }
+
+            public Task<vkinegrab.Models.TmdbMovie?> FetchTmdbById(int tmdbId)
+            {
+                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
+            }
+        }
+
+        private class SpyCsfdScraper : ICsfdScraper
+        {
+            public bool ResolveCalled { get; private set; }
+            public bool FetchByIdCalled { get; private set; }
+
+            public Task<CsfdMovie> ScrapeMovie(int movieId)
+            {
+                // Return a generic CSFD movie
+                var csfd = new CsfdMovie { Id = movieId, Title = "WithIds" };
+                return Task.FromResult(csfd);
+            }
+
+            public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
+            {
+                ResolveCalled = true;
+                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
+            }
+
+            public Task<vkinegrab.Models.TmdbMovie?> FetchTmdbById(int tmdbId)
+            {
+                FetchByIdCalled = true;
+                var tmdb = new vkinegrab.Models.TmdbMovie
+                {
+                    Id = tmdbId,
+                    Title = "TMDB From Id",
+                    Overview = "Overview",
+                    PosterPath = "/fetched.jpg",
+                    BackdropPath = "/backdrop.jpg",
+                    VoteAverage = 9.1,
+                    VoteCount = 500,
+                    Popularity = 99.0,
+                    OriginalLanguage = "en",
+                    Adult = false,
+                    ReleaseDate = DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd")
+                };
+                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(tmdb);
             }
         }
     }

@@ -48,9 +48,19 @@ public static class MovieMergeExtensions
             Adult = tmdbMovie?.Adult,
             
             // Localization from CSFD
-            LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>()
+            LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>(),
+
+            // Release date (from TMDB when available)
+            ReleaseDate = ParseReleaseDate(tmdbMovie?.ReleaseDate)
         };
-        
+
         return merged;
+    }
+
+    private static DateTime? ParseReleaseDate(string? releaseDate)
+    {
+        if (string.IsNullOrWhiteSpace(releaseDate)) return null;
+        if (DateTime.TryParse(releaseDate, out var dt)) return dt.Date;
+        return null;
     }
 }

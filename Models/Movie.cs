@@ -29,6 +29,10 @@ public class Movie
     
     // Localization
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
+
+    // Release / storage metadata
+    public DateTime? ReleaseDate { get; set; }
+    public DateTime? StoredAt { get; set; }
     
     public string CsfdUrl => $"https://www.csfd.cz/film/{CsfdId}";
     public string TmdbUrl => TmdbId.HasValue ? $"https://www.themoviedb.org/movie/{TmdbId}" : string.Empty;

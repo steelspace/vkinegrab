@@ -111,7 +111,8 @@ public class DatabaseService : IDatabaseService
             OriginalLanguage = movie.OriginalLanguage,
             Adult = movie.Adult,
             LocalizedTitles = movie.LocalizedTitles,
-            StoredAt = DateTime.UtcNow
+            ReleaseDate = movie.ReleaseDate,
+            StoredAt = movie.StoredAt ?? DateTime.UtcNow
         };
 
         try
@@ -137,6 +138,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.OriginalLanguage, storedMovie.OriginalLanguage)
                 .Set(m => m.Adult, storedMovie.Adult)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
+                .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);
 
             await moviesCollection.UpdateOneAsync(
@@ -242,7 +244,9 @@ public class DatabaseService : IDatabaseService
                 Popularity = storedMovie.Popularity,
                 OriginalLanguage = storedMovie.OriginalLanguage,
                 Adult = storedMovie.Adult,
-                LocalizedTitles = storedMovie.LocalizedTitles
+                LocalizedTitles = storedMovie.LocalizedTitles,
+                ReleaseDate = storedMovie.ReleaseDate,
+                StoredAt = storedMovie.StoredAt
             };
         }
         catch (MongoException ex)

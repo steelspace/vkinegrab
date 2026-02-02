@@ -276,4 +276,29 @@ internal sealed class TmdbResolver
         var match = System.Text.RegularExpressions.Regex.Match(value, @"\b(\d{4})\b");
         return match.Success ? match.Groups[1].Value : null;
     }
+
+    public async Task<TmdbMovie?> GetMovieById(int id)
+    {
+        var url = $"{ApiBaseUrl}/movie/{id}?language=en-US";
+        string responseJson;
+        try
+        {
+            responseJson = await client.GetStringAsync(url);
+        }
+        catch
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+            return ParseTmdbMovie(root);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }

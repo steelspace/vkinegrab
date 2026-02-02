@@ -42,13 +42,8 @@ internal sealed class ImdbMetadataValidator
 
         if (hasYear && hasDirectors)
         {
-            // If directors don't match but year does, accept it (IMDb may not have director info from HTML fallback)
-            if (yearValid && !directorsValid && metadata.Directors.Count == 0)
-            {
-                Console.WriteLine($"      Accepting match: Year valid but no IMDb director data (likely HTML fallback)");
-                return true;
-            }
-            return yearValid && directorsValid;
+            // Accept if either year or directors match (to handle cases where metadata has incorrect year but directors are correct)
+            return yearValid || directorsValid;
         }
 
         if (hasYear)

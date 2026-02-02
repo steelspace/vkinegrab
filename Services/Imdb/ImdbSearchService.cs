@@ -1,33 +1,110 @@
 using HtmlAgilityPack;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using vkinegrab.Services.Imdb.Models;
 
 namespace vkinegrab.Services.Imdb;
 
+public class ResilientHttpClient : IDisposable
+{
+    private readonly HttpClient _client;
+    private readonly CookieContainer _cookieContainer = new();
+    private readonly Random _random = new();
+
+    private readonly string[] _userAgents = 
+    {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    };
+
+    public ResilientHttpClient()
+    {
+        var handler = new SocketsHttpHandler
+        {
+            CookieContainer = _cookieContainer,
+            UseCookies = true,
+            AutomaticDecompression = DecompressionMethods.All,
+            // Mimic browser connection behavior
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+            {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+            }
+        };
+
+        _client = new HttpClient(handler);
+    }
+
+    public async Task<string> GetImdbSearchAsync(string query)
+    {
+        // 1. Randomize Fingerprint
+        string ua = _userAgents[_random.Next(_userAgents.Length)];
+        
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.imdb.com/find?q={Uri.EscapeDataString(query)}");
+
+        // 2. Set Mandatory Browser Headers
+        request.Headers.Add("User-Agent", ua);
+        request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+        request.Headers.Add("Accept-Language", "en-US,en;q=0.9");
+        request.Headers.Add("Referer", "https://www.imdb.com/");
+        
+        // 3. Add Client Hints (Crucial for modern Chromium-based detection)
+        request.Headers.Add("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"121\", \"Google Chrome\";v=\"121\"");
+        request.Headers.Add("sec-ch-ua-mobile", "?0");
+        request.Headers.Add("sec-ch-ua-platform", "\"Windows\"");
+        request.Headers.Add("Sec-Fetch-Dest", "document");
+        request.Headers.Add("Sec-Fetch-Mode", "navigate");
+        request.Headers.Add("Sec-Fetch-Site", "same-origin");
+
+        // 4. Random Delay to simulate human thinking time
+        await Task.Delay(_random.Next(1000, 3000));
+
+        var response = await _client.SendAsync(request);
+
+        // Handle the 202 "Accepted" but empty body scenario
+        if (response.StatusCode == HttpStatusCode.Accepted)
+        {
+            // If we get a 202, IMDb is likely "queuing" or soft-blocking.
+            // A common fix is to wait and retry once with the cookies we just received.
+            await Task.Delay(2000);
+            return await GetImdbSearchAsync(query); 
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    public void Dispose() => _client.Dispose();
+}
+
 internal sealed class ImdbSearchService
 {
-    private readonly HttpClient client;
+    private readonly ResilientHttpClient _resilientClient;
 
     public ImdbSearchService(HttpClient client)
     {
-        this.client = client;
+        // Ignore the injected client, use our resilient one
+        _resilientClient = new ResilientHttpClient();
     }
 
     public async Task<List<ImdbSearchResult>> Search(string query, string? titleType = null)
     {
-        var searchUrl = titleType != null
-            ? $"https://www.imdb.com/find/?q={Uri.EscapeDataString(query)}&s=tt&ttype={titleType}"
-            : $"https://www.imdb.com/find/?q={Uri.EscapeDataString(query)}";
+        var titleTypeParam = titleType ?? "ft";
+        var searchUrl = $"https://www.imdb.com/find?q={Uri.EscapeDataString(query)}";
 
         string searchHtml;
         try
         {
-            searchHtml = await client.GetStringAsync(searchUrl);
+            Console.WriteLine($"    Search URL: {searchUrl}");
+            searchHtml = await _resilientClient.GetImdbSearchAsync(query);
+            Console.WriteLine($"    HTML length: {searchHtml.Length}, contains findList: {searchHtml.Contains("findList")}, contains ipc-metadata: {searchHtml.Contains("ipc-metadata-list-summary-item")}");
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"    Search failed: {ex.Message}");
             return new List<ImdbSearchResult>();
         }
 

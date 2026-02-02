@@ -29,16 +29,21 @@ public class CsfdScraper : ICsfdScraper
         }
 
         // 1. Setup HttpClient with realistic headers (Crucial for CSFD)
-        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
+        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All, CookieContainer = new System.Net.CookieContainer() };
         var csfdClient = new HttpClient(handler);
-        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+        csfdClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+        var imdbHandler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All, CookieContainer = new System.Net.CookieContainer() };
+        imdbHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        var imdbClient = new HttpClient(imdbHandler);
+        imdbClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+        imdbClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
 
         var tmdbClient = new HttpClient();
 
         this.client = csfdClient;
-        this.imdbResolver = new ImdbResolver(csfdClient);
+        this.imdbResolver = new ImdbResolver(imdbClient);
         this.tmdbResolver = new TmdbResolver(tmdbClient);
     }
 

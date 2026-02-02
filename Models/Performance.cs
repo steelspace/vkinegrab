@@ -6,7 +6,6 @@ public class Performance
     public string MovieTitle { get; set; } = string.Empty;
     public string? MovieUrl { get; set; }
     public int VenueId { get; set; }
-    public List<CinemaBadge> Badges { get; } = new();
     public List<Showtime> Showtimes { get; } = new();
 }
 
@@ -29,4 +28,5 @@ public class Showtime
     public DateTime StartAt { get; set; }
     public bool TicketsAvailable { get; set; }
     public string? TicketUrl { get; set; }
+    public List<CinemaBadge> Badges { get; } = new();
 }

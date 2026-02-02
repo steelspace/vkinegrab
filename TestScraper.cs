@@ -271,26 +271,37 @@ public class TestScraper
                 var segments = new List<string>();
                 foreach (var performance in cinemaGroup.Performances)
                 {
-                    var hallLabels = performance.Badges
-                        .Where(b => b.Kind == BadgeKind.Hall)
-                        .Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)
-                        .Where(label => !string.IsNullOrWhiteSpace(label))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
-
-                    var showtimes = performance.Showtimes
+                    // Group showtimes by their badge combinations
+                    var showtimeGroups = performance.Showtimes
                         .OrderBy(s => s.StartAt)
-                        .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty))
-                        .Distinct()
+                        .GroupBy(s => string.Join(",", s.Badges
+                            .Where(b => b.Kind == BadgeKind.Hall)
+                            .Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)
+                            .OrderBy(x => x)))
                         .ToList();
 
-                    if (showtimes.Count == 0)
+                    foreach (var badgeGroup in showtimeGroups)
                     {
-                        continue;
-                    }
+                        var hallLabels = badgeGroup.First().Badges
+                            .Where(b => b.Kind == BadgeKind.Hall)
+                            .Select(b => string.IsNullOrWhiteSpace(b.Description) ? b.Code : b.Description)
+                            .Where(label => !string.IsNullOrWhiteSpace(label))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
 
-                    var prefix = hallLabels.Count > 0 ? string.Join("/", hallLabels) + ": " : string.Empty;
-                    segments.Add(prefix + string.Join(", ", showtimes));
+                        var showtimes = badgeGroup
+                            .Select(s => s.StartAt.ToString("HH:mm", culture) + (s.TicketsAvailable ? "*" : string.Empty))
+                            .Distinct()
+                            .ToList();
+
+                        if (showtimes.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        var prefix = hallLabels.Count > 0 ? string.Join("/", hallLabels) + ": " : string.Empty;
+                        segments.Add(prefix + string.Join(", ", showtimes));
+                    }
                 }
 
                 if (segments.Count == 0)

@@ -231,21 +231,12 @@ public class PerformancesService : IPerformancesService
                 var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId);
                 if (existing != null)
                 {
-                    // merge showtimes uniquely
+                    // merge showtimes uniquely (showtimes now contain their own badges)
                     foreach (var st in performance.Showtimes)
                     {
                         if (!existing.Showtimes.Any(s => s.StartAt == st.StartAt))
                         {
                             existing.Showtimes.Add(st);
-                        }
-                    }
-
-                    // merge badges uniquely
-                    foreach (var badge in performance.Badges)
-                    {
-                        if (!existing.Badges.Any(b => b.Kind == badge.Kind && b.Code == badge.Code))
-                        {
-                            existing.Badges.Add(badge);
                         }
                     }
                 }
@@ -280,14 +271,15 @@ public class PerformancesService : IPerformancesService
             MovieUrl = movieUrl
         };
 
+        var rowBadges = new List<CinemaBadge>();
         foreach (var badge in ExtractHallBadges(row))
         {
-            performance.Badges.Add(badge);
+            rowBadges.Add(badge);
         }
 
         foreach (var badge in ExtractFormatBadges(row))
         {
-            performance.Badges.Add(badge);
+            rowBadges.Add(badge);
         }
 
         var showtimes = ExtractShowtimes(row, date, requestUri);
@@ -295,6 +287,11 @@ public class PerformancesService : IPerformancesService
         {
             if (performance.Showtimes.All(s => s.StartAt != showtime.StartAt))
             {
+                // Copy row badges to this showtime
+                foreach (var badge in rowBadges)
+                {
+                    showtime.Badges.Add(new CinemaBadge { Kind = badge.Kind, Code = badge.Code, Description = badge.Description });
+                }
                 performance.Showtimes.Add(showtime);
             }
         }

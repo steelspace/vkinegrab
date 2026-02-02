@@ -13,13 +13,15 @@ public class DatabaseService : IDatabaseService
     private readonly IMongoDatabase database;
     private readonly IMongoCollection<MovieDto> moviesCollection;
     private readonly IMongoCollection<ScheduleDto> schedulesCollection;
+    private readonly IMongoCollection<VenueDto> venuesCollection;
 
     public DatabaseService(string connectionString)
     {
         var client = new MongoClient(connectionString);
         database = client.GetDatabase("movies");
-        moviesCollection = database.GetCollection<MovieDto>("movies");
-        schedulesCollection = database.GetCollection<ScheduleDto>("schedule");
+        moviesCollection = database.GetCollection<MovieDto>("movies", null);
+        schedulesCollection = database.GetCollection<ScheduleDto>("schedule", null);
+        venuesCollection = database.GetCollection<VenueDto>("venues", null);
         
         InitializeIndexes();
     }
@@ -28,25 +30,33 @@ public class DatabaseService : IDatabaseService
     internal DatabaseService(IMongoDatabase database)
     {
         this.database = database;
-        moviesCollection = database.GetCollection<MovieDto>("movies");
-        schedulesCollection = database.GetCollection<ScheduleDto>("schedule");
+        moviesCollection = database.GetCollection<MovieDto>("movies", null);
+        schedulesCollection = database.GetCollection<ScheduleDto>("schedule", null);
+        venuesCollection = database.GetCollection<VenueDto>("venues", null);
 
         InitializeIndexes();
     }
 
     private void InitializeIndexes()
     {
+        // Create index on CsfdId for faster lookups
         try
         {
-            // Create index on CsfdId for faster lookups
             var indexOptions = new CreateIndexOptions { Unique = true };
             var indexModel = new CreateIndexModel<MovieDto>(
                 Builders<MovieDto>.IndexKeys.Ascending(m => m.CsfdId),
                 indexOptions
             );
             moviesCollection.Indexes.CreateOne(indexModel);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Warning: Unable to create movie index: {ex.Message}");
+        }
 
-            // Create compound unique index on date + movie_id for schedules
+        // Create compound unique index on date + movie_id for schedules
+        try
+        {
             var scheduleIndexOptions = new CreateIndexOptions { Unique = true };
             var scheduleIndex = new CreateIndexModel<ScheduleDto>(
                 Builders<ScheduleDto>.IndexKeys.Ascending(s => s.Date).Ascending(s => s.MovieId),
@@ -56,9 +66,22 @@ public class DatabaseService : IDatabaseService
         }
         catch (Exception ex)
         {
-            // Don't fail the entire application during initialization just because MongoDB is unreachable.
-            // This typically happens when DNS/network prevents connecting to the configured host.
-            Console.WriteLine($"⚠ Warning: Unable to initialize MongoDB indexes: {ex.Message}");
+            Console.WriteLine($"⚠ Warning: Unable to create schedule index: {ex.Message}");
+        }
+
+        // Create unique index on venue Id
+        try
+        {
+            var venueIndexOptions = new CreateIndexOptions { Unique = true };
+            var venueIndex = new CreateIndexModel<VenueDto>(
+                Builders<VenueDto>.IndexKeys.Ascending(v => v.VenueId),
+                venueIndexOptions
+            );
+            venuesCollection.Indexes.CreateOne(venueIndex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Warning: Unable to create venue index: {ex.Message}");
         }
     }
 
@@ -233,6 +256,92 @@ public class DatabaseService : IDatabaseService
         catch (MongoException ex)
         {
             throw new InvalidOperationException("Failed to retrieve schedules from database", ex);
+        }
+    }
+
+    /// <summary>
+    /// Stores a venue in the database.
+    /// </summary>
+    public async Task StoreVenue(Venue venue)
+    {
+        var dto = venue.ToDto();
+
+        try
+        {
+            var filter = Builders<VenueDto>.Filter.Eq(v => v.VenueId, dto.VenueId);
+            var update = Builders<VenueDto>.Update
+                .Set(v => v.VenueId, dto.VenueId)
+                .Set(v => v.City, dto.City)
+                .Set(v => v.Name, dto.Name)
+                .Set(v => v.DetailUrl, dto.DetailUrl)
+                .Set(v => v.Address, dto.Address)
+                .Set(v => v.MapUrl, dto.MapUrl);
+
+            await venuesCollection.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException($"Failed to store venue with ID {venue.Id}", ex);
+        }
+    }
+
+    public async Task StoreVenues(IEnumerable<Venue> venues)
+    {
+        foreach (var v in venues)
+        {
+            await StoreVenue(v);
+        }
+    }
+
+    public async Task<IReadOnlyList<Venue>> GetVenuesAsync()
+    {
+        try
+        {
+            var dtos = await venuesCollection.Find(_ => true).ToListAsync();
+            return dtos.Select(d => d.ToVenue()).ToList();
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve venues from database", ex);
+        }
+    }
+
+    public async Task<Venue?> GetVenue(int venueId)
+    {
+        try
+        {
+            var stored = await venuesCollection.Find(v => v.VenueId == venueId).FirstOrDefaultAsync();
+            return stored == null ? null : stored.ToVenue();
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException($"Failed to retrieve venue with ID {venueId}", ex);
+        }
+    }
+
+    public async Task AddVenueUrlToSchedulesAsync(int venueId, string venueUrl)
+    {
+        try
+        {
+            var filter = Builders<ScheduleDto>.Filter.ElemMatch(s => s.Performances, p => p.VenueId == venueId);
+            var update = Builders<ScheduleDto>.Update.Set("performances.$[elem].venue_url", venueUrl);
+
+            var arrayFilter = new List<ArrayFilterDefinition>
+            {
+                new BsonDocumentArrayFilterDefinition<BsonDocument>(new BsonDocument("elem.venue_id", venueId))
+            };
+
+            var updateOptions = new UpdateOptions { ArrayFilters = arrayFilter };
+
+            await schedulesCollection.UpdateManyAsync(filter, update, updateOptions);
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException($"Failed to update schedules with venue URL for venue {venueId}", ex);
         }
     }
 

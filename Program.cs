@@ -99,45 +99,24 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         }
     }
 
-    var service = new PerformancesService();
-    IReadOnlyList<Schedule> schedules;
-    try
-    {
-        schedules = await service.GetSchedules(pageUri, period);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Failed to download schedules: {ex.Message}");
-        return;
-    }
+    var performancesService = new PerformancesService();
+    var storeService = new SchedulesStoreService(performancesService, databaseService);
+    var (schedules, storedSchedules, failedSchedules, storedVenues, failedVenues) = await storeService.StoreSchedulesAndVenuesAsync(pageUri, period);
 
-    if (schedules.Count == 0)
+    if ((schedules?.Count ?? 0) == 0 && storedSchedules + failedSchedules == 0)
     {
         Console.WriteLine("No schedules to store.");
         return;
     }
 
-    Console.WriteLine($"Storing {schedules.Count} schedules to MongoDB (collection 'schedule')...");
-    var success = 0;
-    var failed = 0;
+    Console.WriteLine($"Done. Stored schedules: {storedSchedules}. Failed: {failedSchedules}.");
 
-    foreach (var s in schedules)
+    if (storedVenues > 0)
     {
-        try
-        {
-            await databaseService.StoreSchedule(s);
-            success++;
-        }
-        catch (Exception ex)
-        {
-            failed++;
-                // Print full exception (including inner exceptions and stack trace) to aid debugging
-                Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date:yyyy-MM-dd}: {ex}");
-            }
-        }
+        Console.WriteLine($"Stored discovered venues: {storedVenues}. Failed: {failedVenues}.");
+    }
 
-        Console.WriteLine($"Done. Stored: {success}. Failed: {failed}.");
-        return;
+    return;
     }
 
 if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnoreCase))
@@ -167,42 +146,32 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     }
 
     var performancesService = new PerformancesService();
+    var storeService = new SchedulesStoreService(performancesService, databaseService);
+
+    // Fetch + store in one step and obtain schedules for the movie collector (avoids double-fetch)
     IReadOnlyList<Schedule> schedules;
     try
     {
-        schedules = await performancesService.GetSchedules(pageUri, period);
+        var (fetchedSchedules, storedSchedules, failedSchedules, storedVenues, failedVenues) = await storeService.StoreSchedulesAndVenuesAsync(pageUri, period);
+        schedules = fetchedSchedules;
+
+        Console.WriteLine($"Done storing schedules. Stored: {storedSchedules}. Failed: {failedSchedules}.");
+        if (storedVenues > 0)
+        {
+            Console.WriteLine($"Stored discovered venues: {storedVenues}. Failed: {failedVenues}.");
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Failed to download schedules: {ex.Message}");
+        Console.WriteLine($"Failed to download/store schedules: {ex.Message}");
         return;
     }
 
-    if (schedules.Count == 0)
+    if (schedules == null || schedules.Count == 0)
     {
         Console.WriteLine("No schedules to grab.");
         return;
     }
-
-    Console.WriteLine($"Storing {schedules.Count} schedules to MongoDB (collection 'schedule')...");
-    var success = 0;
-    var failed = 0;
-
-    foreach (var s in schedules)
-    {
-        try
-        {
-            await databaseService.StoreSchedule(s);
-            success++;
-        }
-        catch (Exception ex)
-        {
-            failed++;
-            Console.WriteLine($"  Failed to store schedule for movie {s.MovieId} on {s.Date:yyyy-MM-dd}: {ex}");
-        }
-    }
-
-    Console.WriteLine($"Done storing schedules. Stored: {success}. Failed: {failed}.");
 
     var csfdScraper = new CsfdScraper(tmdbBearerToken);
     var collector = new MovieCollectorService(performancesService, csfdScraper, databaseService);
@@ -211,6 +180,68 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
     Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failedMovies}.");
+
+    // After storing schedules and movies, optionally fetch venues
+    Console.WriteLine("To fetch venue details for stored performances run: grab-venues");
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Grabbing venues referenced by stored performances...");
+    var csfdScraper = new CsfdScraper(tmdbBearerToken);
+
+    var schedules = await databaseService.GetSchedulesAsync();
+    var venueIds = schedules
+        .SelectMany(s => s.Performances)
+        .Select(p => p.VenueId)
+        .Where(id => id > 0)
+        .Distinct()
+        .OrderBy(id => id)
+        .ToList();
+
+    if (venueIds.Count == 0)
+    {
+        Console.WriteLine("No venue IDs found in stored schedules.");
+        return;
+    }
+
+    Console.WriteLine($"Found {venueIds.Count} distinct venue IDs. Querying database to skip already stored venues...");
+
+    var stored = await databaseService.GetVenuesAsync();
+    var storedIds = new HashSet<int>(stored.Select(v => v.Id));
+
+    var toFetch = venueIds.Where(id => !storedIds.Contains(id)).ToList();
+
+    Console.WriteLine($"Need to fetch {toFetch.Count} venues.");
+
+    var fetched = 0;
+    var failed = 0;
+
+    foreach (var venueId in toFetch)
+    {
+        try
+        {
+            var venue = await csfdScraper.ScrapeVenue(venueId);
+            await databaseService.StoreVenue(venue);
+
+            // If scraper discovers the canonical URL, store it back into schedules for future reference
+            if (!string.IsNullOrWhiteSpace(venue.DetailUrl))
+            {
+                await databaseService.AddVenueUrlToSchedulesAsync(venueId, venue.DetailUrl);
+            }
+
+            Console.WriteLine($"Stored venue {venueId}: {venue.Name}");
+            fetched++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to fetch/store venue {venueId}: {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Fetched: {fetched}. Failed: {failed}.");
     return;
 }
 

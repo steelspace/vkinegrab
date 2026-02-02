@@ -78,6 +78,11 @@ namespace vkinegrab.Tests
             {
                 return Task.FromResult(schedules);
             }
+
+            public Task<(IReadOnlyList<Schedule> Schedules, IReadOnlyList<Venue> Venues)> GetSchedulesWithVenues(System.Uri? pageUri = null, string period = "today", System.Threading.CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(((IReadOnlyList<Schedule>)schedules, (IReadOnlyList<Venue>)Array.Empty<Venue>()));
+            }
         }
 
         private class FakeCsfdScraper : ICsfdScraper

@@ -149,6 +149,81 @@ public class CsfdScraper : ICsfdScraper
         return movie;
     }
 
+    /// <summary>
+    /// Scrapes basic information about a cinema/venue page on CSFD.
+    /// Best effort parsing since CSFD markup can vary.
+    /// </summary>
+    public async Task<Venue> ScrapeVenue(int venueId)
+    {
+        return await ScrapeVenue($"https://www.csfd.cz/kino/{venueId}");
+    }
+
+    public async Task<Venue> ScrapeVenue(string url)
+    {
+        Console.WriteLine($"Downloading venue: {url}");
+
+        // Use SendAsync to capture the final request URI after redirects so we store the canonical URL
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        var response = await client.SendAsync(request);
+        var finalUri = response.RequestMessage?.RequestUri?.ToString();
+        var html = await response.Content.ReadAsStringAsync();
+
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        var venue = new Venue();
+        venue.DetailUrl = !string.IsNullOrWhiteSpace(finalUri) ? finalUri : url;
+
+        // Name - prefer an H1 or H2
+        var titleNode = doc.DocumentNode.SelectSingleNode("//h1") ?? doc.DocumentNode.SelectSingleNode("//h2") ?? doc.DocumentNode.SelectSingleNode("//title");
+        venue.Name = titleNode != null ? Clean(titleNode.InnerText) : null;
+
+        // Map URL - look for links to known map providers
+        var mapAnchor = doc.DocumentNode.SelectSingleNode("//a[contains(@href,'google.com') or contains(@href,'mapy.cz') or contains(@href,'maps')]");
+        if (mapAnchor != null)
+        {
+            var href = mapAnchor.GetAttributeValue("href", string.Empty);
+            if (!string.IsNullOrWhiteSpace(href))
+            {
+                venue.MapUrl = href.StartsWith("//") ? "https:" + href : href;
+            }
+        }
+
+        // Address - try a few heuristics
+        // 1) explicit address tag
+        var addressNode = doc.DocumentNode.SelectSingleNode("//address") ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class,'address')]");
+        if (addressNode != null)
+        {
+            venue.Address = Clean(addressNode.InnerText);
+        }
+        else
+        {
+            // 2) look for text nodes containing 'Adresa' (Czech for Address) or 'Address'
+            var possible = doc.DocumentNode.SelectNodes("//*[text()]")?.Select(n => n.InnerText.Trim()).FirstOrDefault(t => t.IndexOf("Adresa", StringComparison.OrdinalIgnoreCase) >= 0 || t.IndexOf("Address", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (!string.IsNullOrWhiteSpace(possible))
+            {
+                // Try to extract after label
+                var idx = possible.IndexOf(':');
+                venue.Address = idx >= 0 && idx + 1 < possible.Length ? Clean(possible.Substring(idx + 1)) : Clean(possible);
+            }
+            else if (mapAnchor != null)
+            {
+                // Fallback: use parent surrounding text of the map link as address
+                var parentText = mapAnchor.ParentNode?.InnerText;
+                if (!string.IsNullOrWhiteSpace(parentText)) venue.Address = Clean(parentText);
+            }
+        }
+
+        // Try to extract numeric ID from URL
+        var idMatch = System.Text.RegularExpressions.Regex.Match(url, "(\\d+)");
+        if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var id))
+        {
+            venue.Id = id;
+        }
+
+        return venue;
+    }
+
     public async Task<TmdbMovie?> ResolveTmdb(CsfdMovie movie)
     {
         return await tmdbResolver.ResolveTmdbMovie(movie);

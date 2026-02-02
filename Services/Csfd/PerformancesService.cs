@@ -33,10 +33,19 @@ public class PerformancesService : IPerformancesService
         string period = "today",
         CancellationToken cancellationToken = default)
     {
+        var (schedules, _) = await GetSchedulesWithVenues(pageUri, period, cancellationToken).ConfigureAwait(false);
+        return schedules;
+    }
+
+    public async Task<(IReadOnlyList<Schedule> Schedules, IReadOnlyList<Venue> Venues)> GetSchedulesWithVenues(
+        Uri? pageUri = null,
+        string period = "today",
+        CancellationToken cancellationToken = default)
+    {
         pageUri ??= new Uri(baseUri, "/kino/1-praha/?period=all");
         var requestUri = AppendPeriod(pageUri, period);
         var html = await FetchHtml(requestUri, cancellationToken).ConfigureAwait(false);
-        return ParseSchedules(html, requestUri);
+        return ParseSchedulesAndVenues(html, requestUri);
     }
 
     private static HttpClient CreateDefaultClient(Uri baseUri)
@@ -83,7 +92,8 @@ public class PerformancesService : IPerformancesService
         return await httpClient.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
-    private IReadOnlyList<Schedule> ParseSchedules(string html, Uri requestUri)
+    // Parse schedules and return any discovered venue metadata from the same page (best-effort)
+    private (IReadOnlyList<Schedule> Schedules, IReadOnlyList<Venue> Venues) ParseSchedulesAndVenues(string html, Uri requestUri)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -91,15 +101,89 @@ public class PerformancesService : IPerformancesService
         var sections = doc.DocumentNode.SelectNodes("//section[contains(@class,'updated-box-cinema')]");
         if (sections is null || sections.Count == 0)
         {
-            return Array.Empty<Schedule>();
+            return (Array.Empty<Schedule>(), Array.Empty<Venue>());
         }
 
         var schedules = new Dictionary<(DateOnly date, int movieId), Schedule>();
+        var venues = new Dictionary<int, Venue>();
 
         foreach (var section in sections)
         {
             var idValue = section.GetAttributeValue("id", string.Empty);
             var cinemaId = ExtractInt(CinemaIdRegex, idValue);
+
+            // Prefer slugged /kino/ link when possible, otherwise fallback to any /kino/ link
+            var venueLink = section.SelectSingleNode(".//a[contains(@href,'/kino/') and contains(@href,'-')]")
+                            ?? section.SelectSingleNode(".//a[contains(@href,'/kino/')]");
+            var venueUrl = venueLink != null ? ToAbsoluteUrl(venueLink.GetAttributeValue("href", string.Empty), requestUri) : null;
+
+            // If the venue link contains an explicit numeric ID (e.g. /kino/1-praha/110-slug/), prefer it over the section id
+            if (!string.IsNullOrWhiteSpace(venueUrl))
+            {
+                var urlMatch = Regex.Match(venueUrl, "/kino/(?:[^/]+/)?(\\d+)", RegexOptions.IgnoreCase);
+                if (urlMatch.Success && int.TryParse(urlMatch.Groups[1].Value, out var urlCinemaId))
+                {
+                    cinemaId = urlCinemaId;
+                }
+            }
+
+            // Extract venue metadata from the section (best-effort)
+            if (cinemaId > 0 && !venues.ContainsKey(cinemaId))
+            {
+                var venue = new Venue { Id = cinemaId };
+                venue.DetailUrl = venueUrl;
+
+                // Name heuristics
+                var name = venueLink != null ? Clean(venueLink.InnerText) : null;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    var header = section.SelectSingleNode(".//h3") ?? section.SelectSingleNode(".//h2") ?? section.SelectSingleNode(".//h4");
+                    name = Clean(header?.InnerText);
+                }
+                venue.Name = name;
+
+                // Address heuristics
+                var addressNode = section.SelectSingleNode(".//*[contains(@class,'address')]") ?? section.SelectSingleNode(".//address");
+                if (addressNode != null)
+                {
+                    venue.Address = Clean(addressNode.InnerText);
+                }
+                else
+                {
+                    // Look for surrounding text near the map link
+                    var mapAnchor = section.SelectSingleNode(".//a[contains(@href,'google.com') or contains(@href,'mapy.cz') or contains(@href,'maps')]");
+                    if (mapAnchor != null)
+                    {
+                        var parentText = mapAnchor.ParentNode?.InnerText;
+                        if (!string.IsNullOrWhiteSpace(parentText)) venue.Address = Clean(parentText);
+                    }
+                }
+
+                // Map URL
+                var mapAnchor2 = section.SelectSingleNode(".//a[contains(@href,'google.com') or contains(@href,'mapy.cz') or contains(@href,'maps')]");
+                if (mapAnchor2 != null)
+                {
+                    var href = mapAnchor2.GetAttributeValue("href", string.Empty);
+                    if (!string.IsNullOrWhiteSpace(href)) venue.MapUrl = href.StartsWith("//") ? "https:" + href : href;
+                }
+
+                // City: try extract from URL slug (e.g. /kino/1-praha/)
+                if (!string.IsNullOrWhiteSpace(venueUrl))
+                {
+                    var m = Regex.Match(venueUrl, "/kino/([^/]+)/", RegexOptions.IgnoreCase);
+                    if (m.Success)
+                    {
+                        var citySlug = m.Groups[1].Value;
+                        // Remove numeric prefix (e.g. '1-praha' -> 'praha') then replace hyphens
+                        var city = Regex.Replace(citySlug, "^\\d+-", "");
+                        city = city.Replace('-', ' ').Trim();
+                        venue.City = Clean(city);
+                    }
+                }
+
+                // Only store venues with at least an ID
+                venues[cinemaId] = venue;
+            }
 
             var subHeader = section.SelectSingleNode(".//div[contains(@class,'update-box-sub-header')]");
             var dateText = subHeader?.ChildNodes
@@ -124,6 +208,7 @@ public class PerformancesService : IPerformancesService
                 }
 
                 performance.VenueId = cinemaId;
+                performance.VenueUrl = venueUrl;
 
                 var key = (showDate, performance.MovieId);
                 if (!schedules.TryGetValue(key, out var schedule))
@@ -165,7 +250,8 @@ public class PerformancesService : IPerformancesService
             }
         }
 
-        return schedules.Values.OrderBy(s => s.Date).ThenBy(s => s.MovieId).ToList();
+        var ordered = schedules.Values.OrderBy(s => s.Date).ThenBy(s => s.MovieId).ToList();
+        return (ordered, venues.Values.OrderBy(v => v.Id).ToList());
     }
 
 

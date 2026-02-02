@@ -196,6 +196,21 @@ public class DatabaseService : IDatabaseService
     }
 
     /// <summary>
+    /// Clears all stored schedules from the database.
+    /// </summary>
+    public async Task ClearSchedulesAsync()
+    {
+        try
+        {
+            await schedulesCollection.DeleteManyAsync(Builders<ScheduleDto>.Filter.Empty);
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to clear schedules", ex);
+        }
+    }
+
+    /// <summary>
     /// Retrieves a movie by CSFD ID from the database.
     /// </summary>
     public async Task<Movie?> GetMovie(int csfdId)

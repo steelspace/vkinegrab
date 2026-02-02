@@ -33,6 +33,7 @@ namespace vkinegrab.Tests
                     .ReturnsAsync(((IReadOnlyList<Schedule>)schedules, (IReadOnlyList<Venue>)venues));
 
             var dbMock = new Mock<vkinegrab.Services.IDatabaseService>();
+            dbMock.Setup(d => d.ClearSchedulesAsync()).Returns(Task.CompletedTask);
             dbMock.Setup(d => d.StoreSchedule(It.IsAny<Schedule>())).Returns(Task.CompletedTask);
             dbMock.Setup(d => d.StoreVenues(It.IsAny<IEnumerable<Venue>>())).Returns(Task.CompletedTask);
 
@@ -106,6 +107,7 @@ namespace vkinegrab.Tests
                     .ReturnsAsync(((IReadOnlyList<Schedule>)schedules, (IReadOnlyList<Venue>)venues));
 
             var dbMock = new Mock<vkinegrab.Services.IDatabaseService>();
+            dbMock.Setup(d => d.ClearSchedulesAsync()).Returns(Task.CompletedTask);
             dbMock.Setup(d => d.StoreSchedule(It.IsAny<Schedule>())).Returns(Task.CompletedTask);
             dbMock.Setup(d => d.StoreVenues(It.IsAny<IEnumerable<Venue>>())).Returns(Task.CompletedTask);
 
@@ -118,6 +120,8 @@ namespace vkinegrab.Tests
             Assert.Equal(0, failedSchedules);
             Assert.Equal(1, storedVenues);
             Assert.Equal(0, failedVenues);
+
+            dbMock.Verify(d => d.ClearSchedulesAsync(), Times.Once);
         }
 
         [Fact]
@@ -139,6 +143,7 @@ namespace vkinegrab.Tests
                     .ReturnsAsync(((IReadOnlyList<Schedule>)schedules, (IReadOnlyList<Venue>)venues));
 
             var dbMock = new Mock<vkinegrab.Services.IDatabaseService>();
+            dbMock.Setup(d => d.ClearSchedulesAsync()).Returns(Task.CompletedTask);
             dbMock.Setup(d => d.StoreSchedule(It.IsAny<Schedule>())).ThrowsAsync(new System.InvalidOperationException("boom"));
             dbMock.Setup(d => d.StoreVenues(It.IsAny<IEnumerable<Venue>>())).ThrowsAsync(new System.InvalidOperationException("boom"));
 
@@ -153,6 +158,8 @@ namespace vkinegrab.Tests
             Assert.Equal(1, failedSchedules);
             Assert.Equal(0, storedVenues);
             Assert.Equal(1, failedVenues);
+
+            dbMock.Verify(d => d.ClearSchedulesAsync(), Times.Once);
         }
     }
 }

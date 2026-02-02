@@ -22,6 +22,9 @@ public class SchedulesStoreService
         string period = "today",
         CancellationToken cancellationToken = default)
     {
+        // Clear existing schedules so we only store fresh schedules from the performances page
+        await databaseService.ClearSchedulesAsync().ConfigureAwait(false);
+
         var (schedules, venues) = await performancesService.GetSchedulesWithVenues(pageUri, period, cancellationToken).ConfigureAwait(false);
 
         // Reuse existing overload to perform storage and deduplication

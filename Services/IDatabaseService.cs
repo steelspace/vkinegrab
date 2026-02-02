@@ -20,5 +20,7 @@ namespace vkinegrab.Services
         Task StoreVenues(IEnumerable<Venue> venues);
         Task<IReadOnlyList<Venue>> GetVenuesAsync();
 
+        // Deletes all stored schedules. Use when re-grabbing fresh schedules.
+        Task ClearSchedulesAsync();
     }
 }

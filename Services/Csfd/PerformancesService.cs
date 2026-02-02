@@ -140,6 +140,13 @@ public class PerformancesService : IPerformancesService
                     var header = section.SelectSingleNode(".//h3") ?? section.SelectSingleNode(".//h2") ?? section.SelectSingleNode(".//h4");
                     name = Clean(header?.InnerText);
                 }
+
+                // Normalize venue name: remove leading "Praha -" prefix when present
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    name = Regex.Replace(name, "^(Praha)\\s*-\\s*", string.Empty, RegexOptions.IgnoreCase);
+                }
+
                 venue.Name = name;
 
                 // Address heuristics

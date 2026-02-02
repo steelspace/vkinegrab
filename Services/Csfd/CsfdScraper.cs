@@ -176,7 +176,13 @@ public class CsfdScraper : ICsfdScraper
 
         // Name - prefer an H1 or H2
         var titleNode = doc.DocumentNode.SelectSingleNode("//h1") ?? doc.DocumentNode.SelectSingleNode("//h2") ?? doc.DocumentNode.SelectSingleNode("//title");
-        venue.Name = titleNode != null ? Clean(titleNode.InnerText) : null;
+        var titleText = titleNode != null ? Clean(titleNode.InnerText) : null;
+        // Normalize venue name: remove leading "Praha -" prefix when present
+        if (!string.IsNullOrWhiteSpace(titleText))
+        {
+            titleText = Regex.Replace(titleText, "^(Praha)\\s*-\\s*", string.Empty, RegexOptions.IgnoreCase);
+        }
+        venue.Name = titleText;
 
         // Map URL - look for links to known map providers
         var mapAnchor = doc.DocumentNode.SelectSingleNode("//a[contains(@href,'google.com') or contains(@href,'mapy.cz') or contains(@href,'maps')]");

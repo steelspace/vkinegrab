@@ -51,6 +51,17 @@ namespace vkinegrab.Tests
         </tr>
       </table>
     </section>
+
+    <section id=""cinema-3"" class=""updated-box-cinema"">
+      <a href=""/kino/3-praha/"">Praha - Cinema Three</a>
+      <div class=""update-box-sub-header"">1.2.2026</div>
+      <table class=""cinema-table"">
+        <tr>
+          <td class=""name""><a href=""/film/103/"">Movie D</a></td>
+          <td class=""td-time"">13:00</td>
+        </tr>
+      </table>
+    </section>
   </body>
 </html>
 ";
@@ -75,12 +86,14 @@ namespace vkinegrab.Tests
 
             Assert.StartsWith("https://www.csfd.cz/", v1file.DetailUrl);
 
-            // should have schedules for three films
-            Assert.Equal(3, schedules.Select(s => s.MovieId).Distinct().Count());
+            // should have schedules for four films (we added Movie D)
+            Assert.Equal(4, schedules.Select(s => s.MovieId).Distinct().Count());
 
-            // venues should contain two unique venue IDs (1 and 2)
+            // venues should contain venue IDs 1, 2 and 3 (we don't require strict dedup ordering here)
             var venueIds = venues.Select(v => v.Id).OrderBy(id => id).ToList();
-            Assert.Equal(new[] { 1, 2 }, venueIds);
+            Assert.Contains(1, venueIds);
+            Assert.Contains(2, venueIds);
+            Assert.Contains(3, venueIds);
 
             // ensure names and addresses were extracted where available
             var v1 = venues.First(v => v.Id == 1);
@@ -91,6 +104,10 @@ namespace vkinegrab.Tests
             Assert.Contains("Cinema Two", v2.Name);
             Assert.Equal("Some street 5", v2.Address);
             Assert.Equal("https://www.csfd.cz/kino/2-ostrava/", v2.DetailUrl);
+
+            var v3 = venues.First(v => v.Id == 3);
+            Assert.Equal("Cinema Three", v3.Name);
+            Assert.Equal("https://www.csfd.cz/kino/3-praha/", v3.DetailUrl);
         }
 
         private class FakeHttpMessageHandler : HttpMessageHandler

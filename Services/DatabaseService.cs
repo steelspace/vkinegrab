@@ -15,14 +15,18 @@ public class DatabaseService : IDatabaseService
     private readonly IMongoCollection<ScheduleDto> schedulesCollection;
     private readonly IMongoCollection<VenueDto> venuesCollection;
 
-    public DatabaseService(string connectionString)
+    public DatabaseService(string connectionString) : this(new MongoClient(connectionString))
     {
-        var client = new MongoClient(connectionString);
+    }
+
+    public DatabaseService(IMongoClient client)
+    {
+        if (client == null) throw new ArgumentNullException(nameof(client));
         database = client.GetDatabase("movies");
         moviesCollection = database.GetCollection<MovieDto>("movies", null);
         schedulesCollection = database.GetCollection<ScheduleDto>("schedule", null);
         venuesCollection = database.GetCollection<VenueDto>("venues", null);
-        
+
         InitializeIndexes();
     }
 

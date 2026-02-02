@@ -6,28 +6,37 @@ using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
 using vkinegrab; 
 
+var switchMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    { "--tmdb-bearer-token", "Tmdb:BearerToken" },
+    { "--mongo-connection", "MongoDB:ConnectionString" }
+};
+
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets("vkinegrab-tmdb-secrets")
+    .AddEnvironmentVariables()
+    .AddCommandLine(args, switchMappings)
     .Build();
 
+// Look up credentials in user secrets, environment variables or command-line switches
 var tmdbBearerToken = configuration["Tmdb:BearerToken"];
-
 if (string.IsNullOrWhiteSpace(tmdbBearerToken))
 {
     Console.WriteLine("ERROR: TMDB Bearer Token not found!");
-    Console.WriteLine("Please set it using:");
-    Console.WriteLine("  dotnet user-secrets set \"Tmdb:BearerToken\" \"your-bearer-token-here\"");
+    Console.WriteLine("Set it via: dotnet user-secrets set \"Tmdb:BearerToken\" \"your-token\"");
+    Console.WriteLine("Or pass it as a flag: --tmdb-bearer-token \"your-token\"");
+    Console.WriteLine("Or set env var: TMDB__BearerToken");
     return;
 }
 
 // Initialize MongoDB connection string
 var mongoConnectionString = configuration["MongoDB:ConnectionString"];
-
 if (string.IsNullOrWhiteSpace(mongoConnectionString))
 {
     Console.WriteLine("ERROR: MongoDB Connection String not found!");
-    Console.WriteLine("Please set it using:");
-    Console.WriteLine("  dotnet user-secrets set \"MongoDB:ConnectionString\" \"your-connection-string\"");
+    Console.WriteLine("Set it via: dotnet user-secrets set \"MongoDB:ConnectionString\" \"your-connection-string\"");
+    Console.WriteLine("Or pass it as a flag: --mongo-connection \"mongodb://...\"");
+    Console.WriteLine("Or set env var: MONGODB__ConnectionString");
     return;
 }
 

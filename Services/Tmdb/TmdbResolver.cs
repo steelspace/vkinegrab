@@ -4,18 +4,14 @@ using vkinegrab.Models;
 
 namespace vkinegrab.Services.Tmdb;
 
-internal sealed class TmdbResolver
+public class TmdbResolver : ITmdbResolver
 {
     private readonly HttpClient client;
     private const string ApiBaseUrl = "https://api.themoviedb.org/3";
-    private readonly string bearerToken;
 
-    public TmdbResolver(HttpClient client, string bearerToken)
+    public TmdbResolver(HttpClient client)
     {
-        this.client = client;
-        this.bearerToken = bearerToken;
-        this.client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-        this.client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        this.client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
     public async Task<TmdbMovie?> ResolveTmdbMovie(CsfdMovie movie)

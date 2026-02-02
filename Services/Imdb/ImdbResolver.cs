@@ -5,7 +5,7 @@ using vkinegrab.Services.Imdb.Models;
 
 namespace vkinegrab.Services.Imdb;
 
-internal sealed class ImdbResolver
+public class ImdbResolver : IImdbResolver
 {
     private readonly ImdbSearchService searchService;
     private readonly ImdbTitleMatcher titleMatcher;

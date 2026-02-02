@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Xunit;
 using Moq;
 using HtmlAgilityPack;
+using Microsoft.Extensions.DependencyInjection;
+using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
 using System.Net.Http.Headers;
 using vkinegrab.Models;
@@ -71,7 +73,7 @@ namespace vkinegrab.Tests
             var handler = new FakeHttpMessageHandler(html);
             var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
 
-            var service = new PerformancesService(client, new System.Uri("https://www.csfd.cz/"));
+            var service = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), client, new System.Uri("https://www.csfd.cz/"));
 
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
@@ -107,7 +109,7 @@ namespace vkinegrab.Tests
 
             var handler2 = new FakeHttpMessageHandler(htmlBadge);
             var client2 = new HttpClient(handler2) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
-            var service2 = new PerformancesService(client2, new System.Uri("https://www.csfd.cz/"));
+            var service2 = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), client2, new System.Uri("https://www.csfd.cz/"));
 
             var (schedulesBadge, venuesBadge) = await service2.GetSchedulesWithVenues(null, "all");
             // Find schedule for Movie X (id 200)
@@ -128,7 +130,7 @@ namespace vkinegrab.Tests
 
             // additional regression test: even if the service is constructed with a file:// base, we should resolve hrefs to https
             var fileClient = new HttpClient(new FakeHttpMessageHandler(html)) { BaseAddress = new System.Uri("file:///") };
-            var fileService = new PerformancesService(fileClient, new System.Uri("file:///"));
+            var fileService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), fileClient, new System.Uri("file:///"));
             var (s2, venues2) = await fileService.GetSchedulesWithVenues(null, "all");
             var v1file = venues2.First(v => v.Id == 1);
 
@@ -229,6 +231,24 @@ namespace vkinegrab.Tests
                 response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
                 return Task.FromResult(response);
             }
+        }
+
+        [Fact]
+        public async Task ServiceCollection_Resolves_IPerformancesService_With_HttpClient()
+        {
+            var html = @"<html><body><section id=""cinema-1"" class=""updated-box-cinema""><a href=""/kino/1-praha/"">Cinema One</a><div class=""update-box-sub-header"">1.2.2026</div><table class=""cinema-table""><tr><td class=""name""><a href=""/film/400/"">F</a></td><td class=""td-time"">10:00</td></tr></table></section></body></html>";
+
+            var services = new ServiceCollection();
+            services.AddCsfdParsers();
+            // configure typed http client to use our fake handler
+            services.AddHttpClient<IPerformancesService, PerformancesService>().ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(html));
+
+            var provider = services.BuildServiceProvider();
+            var svc = provider.GetRequiredService<IPerformancesService>();
+            var (schedules, venues) = await svc.GetSchedulesWithVenues(null, "all");
+
+            Assert.Single(schedules);
+            Assert.Contains(schedules.First().MovieId, new[] { 400 });
         }
     }
 }

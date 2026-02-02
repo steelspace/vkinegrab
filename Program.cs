@@ -1,8 +1,10 @@
 ﻿using System.Globalization;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using vkinegrab.Models;
 using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
+using vkinegrab; 
 
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets("vkinegrab-tmdb-secrets")
@@ -29,7 +31,13 @@ if (string.IsNullOrWhiteSpace(mongoConnectionString))
     return;
 }
 
-var databaseService = new DatabaseService(mongoConnectionString);
+// Configure DI
+var services = new ServiceCollection();
+services.AddVkinegrabServices(mongoConnectionString, tmdbBearerToken);
+var provider = services.BuildServiceProvider();
+
+// Resolve database service (use concrete type to access diagnostics like TestConnection)
+var databaseService = provider.GetRequiredService<DatabaseService>();
 
 // Test MongoDB connection
 try
@@ -47,13 +55,17 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"✗ MongoDB connection error: {ex.Message}");
-}
+} 
 
 // Check if running tests
 if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
 {
     var testArgs = args.Skip(1).ToArray();
-    await vkinegrab.TestScraper.Run(testArgs);
+    using var scopeTest = provider.CreateScope();
+    var testRunner = scopeTest.ServiceProvider.GetRequiredService<TestScraper>();
+
+    var maxMovies = testArgs.Length > 0 && int.TryParse(testArgs[0], out var argMax) && argMax > 0 ? argMax : 100;
+    await testRunner.RunTests(maxMovies);
     return;
 }
 
@@ -65,7 +77,8 @@ if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreC
 
 if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
 {
-    var tester = new vkinegrab.TestScraper(tmdbBearerToken);
+    using var scopeShowtime = provider.CreateScope();
+    var tester = scopeShowtime.ServiceProvider.GetRequiredService<TestScraper>();
     var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
     var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
     var maxMovies = args.Length > 3 && int.TryParse(args[3], out var parsedMax) && parsedMax > 0 ? parsedMax : 5;
@@ -99,15 +112,15 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         }
     }
 
-    var performancesService = new PerformancesService();
-    var storeService = new SchedulesStoreService(performancesService, databaseService);
+    using var scopeStore = provider.CreateScope();
+    var storeService = scopeStore.ServiceProvider.GetRequiredService<SchedulesStoreService>();
     var (schedules, storedSchedules, failedSchedules, storedVenues, failedVenues) = await storeService.StoreSchedulesAndVenuesAsync(pageUri, period);
 
     if ((schedules?.Count ?? 0) == 0 && storedSchedules + failedSchedules == 0)
     {
         Console.WriteLine("No schedules to store.");
         return;
-    }
+    } 
 
     Console.WriteLine($"Done. Stored schedules: {storedSchedules}. Failed: {failedSchedules}.");
 
@@ -145,8 +158,8 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
         }
     }
 
-    var performancesService = new PerformancesService();
-    var storeService = new SchedulesStoreService(performancesService, databaseService);
+    using var scopeGrabAll = provider.CreateScope();
+    var storeService = scopeGrabAll.ServiceProvider.GetRequiredService<SchedulesStoreService>();
 
     // Fetch + store in one step and obtain schedules for the movie collector (avoids double-fetch)
     IReadOnlyList<Schedule> schedules;
@@ -173,13 +186,13 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
         return;
     }
 
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var collector = new MovieCollectorService(csfdScraper, databaseService);
+    using var scope2 = provider.CreateScope();
+    var collector = scope2.ServiceProvider.GetRequiredService<MovieCollectorService>();
 
     Console.WriteLine("Collecting movies from newly grabbed schedules...");
     var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
-    Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failedMovies}.");
+    Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failedMovies}."); 
 
     // After storing schedules and movies, optionally fetch venues
     Console.WriteLine("To fetch venue details for stored performances run: grab-venues");
@@ -189,7 +202,8 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
 if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Grabbing venues referenced by stored performances...");
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
+    using var scopeVenues = provider.CreateScope();
+    var csfdScraper = scopeVenues.ServiceProvider.GetRequiredService<ICsfdScraper>();
 
     var schedules = await databaseService.GetSchedulesAsync();
     var venueIds = schedules
@@ -198,7 +212,7 @@ if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgn
         .Where(id => id > 0)
         .Distinct()
         .OrderBy(id => id)
-        .ToList();
+        .ToList(); 
 
     if (venueIds.Count == 0)
     {
@@ -264,20 +278,21 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
         }
     }
 
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var performancesService = new PerformancesService();
-    var collector = new MovieCollectorService(csfdScraper, databaseService);
+    using var scopeCollect = provider.CreateScope();
+    var csfdScraper = scopeCollect.ServiceProvider.GetRequiredService<ICsfdScraper>();
+    var collector = scopeCollect.ServiceProvider.GetRequiredService<MovieCollectorService>();
 
     Console.WriteLine("Collecting movies from stored schedules...");
     var schedules = await databaseService.GetSchedulesAsync();
-    var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+    var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules); 
 
     Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failed}.");
     return;
 }
 
-var scraper = new CsfdScraper(tmdbBearerToken);
-var movieId = 1580037;
+using var scopeSingle = provider.CreateScope();
+var scraper = scopeSingle.ServiceProvider.GetRequiredService<ICsfdScraper>();
+var movieId = 1580037; 
 
 if (args.Length > 0)
 {
@@ -387,7 +402,7 @@ static async Task PrintCinemaSchedule(string[] args)
         }
     }
 
-    var performancesService = new PerformancesService();
+    var performancesService = new PerformancesService(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()));
     var schedules = await performancesService.GetSchedules(pageUri, period);
 
     Console.WriteLine($"Fetched {schedules.Count} schedules for period '{period}'.");

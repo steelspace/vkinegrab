@@ -110,25 +110,15 @@ internal sealed class ImdbTitleMatcher
 
     public bool TitlesShareYear(string? movieYear, ImdbSearchResult result)
     {
+        // Allow ±2 year tolerance for TV episodes, different release regions, etc.
         if (string.IsNullOrWhiteSpace(movieYear))
         {
             return true;
         }
 
-        if (!string.IsNullOrWhiteSpace(result.Year))
+        if (!string.IsNullOrWhiteSpace(result.Year) && YearsMatch(movieYear, result.Year))
         {
-            if (result.Year == movieYear)
-            {
-                return true;
-            }
-            
-            // Allow ±1 year tolerance (for TV episodes, different release regions, etc.)
-            if (int.TryParse(result.Year, out var resultYearInt) && 
-                int.TryParse(movieYear, out var movieYearInt) &&
-                Math.Abs(resultYearInt - movieYearInt) <= 1)
-            {
-                return true;
-            }
+            return true;
         }
 
         if (!string.IsNullOrWhiteSpace(result.RawText))
@@ -138,19 +128,26 @@ internal sealed class ImdbTitleMatcher
             foreach (Match match in matches)
             {
                 var yearStr = match.Groups[1].Value;
-                if (yearStr == movieYear)
-                {
-                    return true;
-                }
-                
-                // Also apply ±1 year tolerance to RawText years
-                if (int.TryParse(yearStr, out var rawYearInt) && 
-                    int.TryParse(movieYear, out var movieYearInt2) &&
-                    Math.Abs(rawYearInt - movieYearInt2) <= 1)
+                if (YearsMatch(movieYear, yearStr))
                 {
                     return true;
                 }
             }
+        }
+
+        return false;
+    }
+
+    private bool YearsMatch(string year1, string year2, int tolerance = 2)
+    {
+        if (year1 == year2)
+        {
+            return true;
+        }
+
+        if (int.TryParse(year1, out var y1) && int.TryParse(year2, out var y2))
+        {
+            return Math.Abs(y1 - y2) <= tolerance;
         }
 
         return false;

@@ -81,7 +81,7 @@ internal sealed class ImdbMetadataValidator
         if (int.TryParse(normalizedMovieYear, out var movieYearValue) && 
             int.TryParse(normalizedImdbYear, out var imdbYearValue))
         {
-            return Math.Abs(movieYearValue - imdbYearValue) <= 1;
+            return Math.Abs(movieYearValue - imdbYearValue) <= 2;
         }
 
         return false;

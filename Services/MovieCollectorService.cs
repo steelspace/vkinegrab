@@ -103,6 +103,9 @@ public class MovieCollectorService
 
                     if (string.IsNullOrWhiteSpace(merged.CsfdPosterUrl) && !string.IsNullOrWhiteSpace(existing.CsfdPosterUrl))
                         merged.CsfdPosterUrl = existing.CsfdPosterUrl;
+
+                    if ((merged.OriginCountries == null || merged.OriginCountries.Count == 0) && existing.OriginCountries?.Count > 0)
+                        merged.OriginCountries = new List<string>(existing.OriginCountries);
                 }
 
                 await databaseService.StoreMovie(merged);

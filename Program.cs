@@ -313,6 +313,10 @@ try
     Console.WriteLine($"TITLE: {movie.Title}");
     Console.WriteLine($"YEAR: {movie.Year}");
     Console.WriteLine($"ORIGIN: {movie.Origin}");
+    var originCountriesDisplay = movie.Origins != null && movie.Origins.Count > 0
+        ? string.Join(", ", movie.Origins)
+        : "N/A";
+    Console.WriteLine($"ORIGIN COUNTRIES: {originCountriesDisplay}");
     Console.WriteLine($"DURATION: {movie.Duration}");
     Console.WriteLine($"RATING: {movie.Rating}");
     Console.WriteLine($"GENRES: {string.Join(", ", movie.Genres)}");

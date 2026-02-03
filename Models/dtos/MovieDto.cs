@@ -32,6 +32,9 @@ internal class MovieDto
     [BsonElement("origin")]
     public string? Origin { get; set; }
 
+    [BsonElement("origin_countries")]
+    public List<string> OriginCountries { get; set; } = new();
+
     [BsonElement("genres")]
     public List<string> Genres { get; set; } = new();
 

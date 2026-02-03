@@ -12,6 +12,7 @@ public class CsfdScraper : ICsfdScraper
     private static readonly HttpClient client;
     private static readonly HttpClient tmdbClient;
     private static readonly ImdbResolver imdbResolver;
+    private static readonly Regex OriginSplitRegex = new("[/·•–—|&]", RegexOptions.Compiled);
     private readonly TmdbResolver tmdbResolver;
 
     static CsfdScraper()
@@ -102,11 +103,19 @@ public class CsfdScraper : ICsfdScraper
             var rawText = Clean(originNode.InnerText);
             if (!string.IsNullOrEmpty(rawText))
             {
-                var parts = rawText.Split(',').Select(s => s.Trim()).ToList();
-                
-                if (parts.Count > 0) movie.Origin = parts[0];
-                if (parts.Count > 1) movie.Year = parts[1];
-                if (parts.Count > 2) movie.Duration = parts.Last(); // Duration is usually last
+                var parts = rawText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length > 0)
+                {
+                    movie.Origin = parts[0];
+                    movie.Origins = ParseOrigins(parts[0]);
+                }
+
+                if (parts.Length > 1)
+                    movie.Year = parts[1];
+
+                if (parts.Length > 2)
+                    movie.Duration = parts[^1]; // Duration is usually last
             }
         }
 
@@ -278,6 +287,19 @@ public class CsfdScraper : ICsfdScraper
         cleaned = Regex.Replace(cleaned, @"\s*\([^)]*\)\s*$", string.Empty).Trim();
         
         return cleaned;
+    }
+
+    private static List<string> ParseOrigins(string? originText)
+    {
+        if (string.IsNullOrWhiteSpace(originText))
+            return new List<string>();
+
+        return OriginSplitRegex
+            .Split(originText)
+            .Select(part => Regex.Replace(part, @"\s+", " ").Trim())
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private int ExtractIdFromUrl(string url)

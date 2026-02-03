@@ -11,6 +11,7 @@ public class CsfdMovie
     public string? Rating { get; set; }
     public List<string> Genres { get; set; } = new();
     public string? Origin { get; set; }
+    public List<string> Origins { get; set; } = new();
     public string? Year { get; set; }
     public string? Duration { get; set; }
     public List<string> Directors { get; set; } = new();

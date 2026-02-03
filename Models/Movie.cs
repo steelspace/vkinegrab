@@ -16,8 +16,9 @@ public class Movie
     public List<string> Directors { get; set; } = new();
     public List<string> Cast { get; set; } = new();
     
-    // Media (primarily from TMDB)
+    // Media (primarily from TMDB, keep CSFD source separately)
     public string? PosterUrl { get; set; }
+    public string? CsfdPosterUrl { get; set; }
     public string? BackdropUrl { get; set; }
     
     // TMDB specific

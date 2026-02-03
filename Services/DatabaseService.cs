@@ -104,6 +104,7 @@ public class DatabaseService : IDatabaseService
             Directors = movie.Directors,
             Cast = movie.Cast,
             PosterUrl = movie.PosterUrl,
+            CsfdPosterUrl = movie.CsfdPosterUrl,
             BackdropUrl = movie.BackdropUrl,
             VoteAverage = movie.VoteAverage,
             VoteCount = movie.VoteCount,
@@ -131,6 +132,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Directors, storedMovie.Directors)
                 .Set(m => m.Cast, storedMovie.Cast)
                 .Set(m => m.PosterUrl, storedMovie.PosterUrl)
+                .Set(m => m.CsfdPosterUrl, storedMovie.CsfdPosterUrl)
                 .Set(m => m.BackdropUrl, storedMovie.BackdropUrl)
                 .Set(m => m.VoteAverage, storedMovie.VoteAverage)
                 .Set(m => m.VoteCount, storedMovie.VoteCount)
@@ -238,6 +240,7 @@ public class DatabaseService : IDatabaseService
                 Directors = storedMovie.Directors,
                 Cast = storedMovie.Cast,
                 PosterUrl = storedMovie.PosterUrl,
+                CsfdPosterUrl = storedMovie.CsfdPosterUrl,
                 BackdropUrl = storedMovie.BackdropUrl,
                 VoteAverage = storedMovie.VoteAverage,
                 VoteCount = storedMovie.VoteCount,

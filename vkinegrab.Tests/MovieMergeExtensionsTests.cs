@@ -62,6 +62,7 @@ public class MovieMergeExtensionsTests
 
         // TMDB media (primary)
         Assert.Equal("https://image.tmdb.org/t/p/original/tmdb-poster.jpg", merged.PosterUrl);
+        Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
         Assert.Equal("https://image.tmdb.org/t/p/original/tmdb-backdrop.jpg", merged.BackdropUrl);
 
         // TMDB metadata
@@ -97,6 +98,7 @@ public class MovieMergeExtensionsTests
         Assert.Equal("Movie Title", merged.Title);
         Assert.Equal("Movie Description", merged.Description);
         Assert.Equal("https://csfd.cz/poster.jpg", merged.PosterUrl);
+        Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
         Assert.Null(merged.BackdropUrl);
     }
 
@@ -147,6 +149,7 @@ public class MovieMergeExtensionsTests
 
         // Assert
         Assert.Equal("https://image.tmdb.org/t/p/original/tmdb-poster.jpg", merged.PosterUrl);
+        Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
     }
 
     [Fact]
@@ -170,6 +173,7 @@ public class MovieMergeExtensionsTests
 
         // Assert
         Assert.Equal("https://csfd.cz/poster.jpg", merged.PosterUrl);
+        Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
     }
 
     [Fact]

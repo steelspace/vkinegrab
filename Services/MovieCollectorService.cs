@@ -100,6 +100,9 @@ public class MovieCollectorService
 
                     if (string.IsNullOrWhiteSpace(merged.ImdbId) && !string.IsNullOrWhiteSpace(existing.ImdbId))
                         merged.ImdbId = existing.ImdbId;
+
+                    if (string.IsNullOrWhiteSpace(merged.CsfdPosterUrl) && !string.IsNullOrWhiteSpace(existing.CsfdPosterUrl))
+                        merged.CsfdPosterUrl = existing.CsfdPosterUrl;
                 }
 
                 await databaseService.StoreMovie(merged);

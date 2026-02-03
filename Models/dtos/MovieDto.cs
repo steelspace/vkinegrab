@@ -44,6 +44,9 @@ internal class MovieDto
     [BsonElement("poster_url")]
     public string? PosterUrl { get; set; }
 
+    [BsonElement("csfd_poster_url")]
+    public string? CsfdPosterUrl { get; set; }
+
     [BsonElement("backdrop_url")]
     public string? BackdropUrl { get; set; }
 

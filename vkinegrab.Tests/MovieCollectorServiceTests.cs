@@ -139,6 +139,7 @@ namespace vkinegrab.Tests
             Assert.Equal(9.1, stored.VoteAverage);
             Assert.Equal(99.0, stored.Popularity);
             Assert.Equal("https://image.tmdb.org/t/p/original/fetched.jpg", stored.PosterUrl);
+            Assert.Equal("https://csfd.cz/poster.jpg", stored.CsfdPosterUrl);
         }
         [Fact]
         public async Task StoreMovie_DirectInsert_Works()
@@ -201,7 +202,7 @@ namespace vkinegrab.Tests
             public Task<CsfdMovie> ScrapeMovie(int movieId)
             {
                 // Return a generic CSFD movie
-                var csfd = new CsfdMovie { Id = movieId, Title = "WithIds" };
+                var csfd = new CsfdMovie { Id = movieId, Title = "WithIds", PosterUrl = "https://csfd.cz/poster.jpg" };
                 return Task.FromResult(csfd);
             }
 

@@ -37,6 +37,8 @@ public static class MovieMergeExtensions
             PosterUrl = !string.IsNullOrWhiteSpace(tmdbMovie?.FullPosterUrl)
                 ? tmdbMovie.FullPosterUrl
                 : csfdMovie.PosterUrl,
+
+            CsfdPosterUrl = csfdMovie.PosterUrl,
             
             BackdropUrl = tmdbMovie?.FullBackdropUrl,
             

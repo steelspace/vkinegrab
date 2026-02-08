@@ -4,7 +4,8 @@ namespace vkinegrab.Services.Csfd
 {
     public interface ICsfdScraper
     {
-        Task<CsfdMovie> ScrapeMovie(int movieId);
+        // Accept optional existing IMDb id to avoid running heuristic lookup when we already have an id
+        Task<CsfdMovie> ScrapeMovie(int movieId, string? existingImdbId = null);
         Task<TmdbMovie?> ResolveTmdb(CsfdMovie movie);
         Task<TmdbMovie?> FetchTmdbById(int tmdbId);
 

@@ -47,14 +47,14 @@ public class CsfdScraper : ICsfdScraper
         this.tmdbResolver = new TmdbResolver(tmdbClient);
     }
 
-    public async Task<CsfdMovie> ScrapeMovie(int movieId)
+    public async Task<CsfdMovie> ScrapeMovie(int movieId, string? existingImdbId = null)
     {
         // CSFD handles numeric IDs by redirecting to the full URL (usually), or just serving the content.
         // We can just query /film/ID
-        return await ScrapeMovie($"https://www.csfd.cz/film/{movieId}");
+        return await ScrapeMovie($"https://www.csfd.cz/film/{movieId}", existingImdbId);
     }
 
-    public async Task<CsfdMovie> ScrapeMovie(string url)
+    public async Task<CsfdMovie> ScrapeMovie(string url, string? existingImdbId = null)
     {
         Console.WriteLine($"Downloading: {url}");
         var html = await client.GetStringAsync(url);
@@ -154,7 +154,25 @@ public class CsfdScraper : ICsfdScraper
             }
         }
 
-        movie.ImdbId = await imdbResolver.ResolveImdbId(doc, movie);
+        // If we already have an IMDb id (from DB), avoid running the heuristic ResolveImdbId search.
+        if (!string.IsNullOrEmpty(existingImdbId))
+        {
+            // Validate the provided IMDb id against scraped data (best-effort) and keep it if valid
+            var valid = await imdbResolver.ValidateImdbId(existingImdbId, movie).ConfigureAwait(false);
+            if (valid)
+            {
+                movie.ImdbId = existingImdbId;
+            }
+            else
+            {
+                // If validation fails, fall back to the heuristic resolution
+                movie.ImdbId = await imdbResolver.ResolveImdbId(doc, movie).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            movie.ImdbId = await imdbResolver.ResolveImdbId(doc, movie);
+        }
 
         return movie;
     }

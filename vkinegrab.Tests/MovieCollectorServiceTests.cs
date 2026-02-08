@@ -16,7 +16,7 @@ namespace vkinegrab.Tests
             var dbService = new DatabaseService(connectionString);
 
             // Pre-store a movie with CSFD ID 1
-            var existingMovie = new Movie { CsfdId = 1, Title = "Existing" };
+            var existingMovie = new Movie { CsfdId = 1, Title = "Existing", ImdbId = "tt-existing" };
             await dbService.StoreMovie(existingMovie);
 
             // Schedules for movie IDs 1 and 2 (pretend these were loaded from DB)
@@ -45,6 +45,8 @@ namespace vkinegrab.Tests
             var storedExisting = await dbService.GetMovie(1);
             Assert.NotNull(storedExisting);
             Assert.Equal("Existing", storedExisting.Title);
+            // No CSFD fetch for the already stored movie (skipped), so no ReceivedExistingImdbId is expected
+            Assert.Null(csfdScraper.ReceivedExistingImdbId);
         }
 
         [Fact]
@@ -98,7 +100,8 @@ namespace vkinegrab.Tests
             Assert.Equal(0, skipped);
             Assert.Equal(0, failed);
 
-            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when existing movie already has TmdbId and ImdbId");
+            // CSFD is fetched (recent release), TMDB should be resolved at that time
+            Assert.True(csfdScraper.ResolveCalled, "ResolveTmdb should be called when CSFD is fetched");
 
             var stored = await dbService.GetMovie(20);
             Assert.NotNull(stored);
@@ -131,14 +134,15 @@ namespace vkinegrab.Tests
             Assert.Equal(0, skipped);
             Assert.Equal(0, failed);
 
-            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when we have TmdbId");
-            Assert.True(csfdScraper.FetchByIdCalled, "FetchTmdbById should be called to refresh metadata by TmdbId");
+            // CSFD was fetched, TMDB should be resolved (not fetched by id as separate logic is removed)
+            Assert.True(csfdScraper.ResolveCalled, "ResolveTmdb should be called when CSFD is fetched");
+            Assert.False(csfdScraper.FetchByIdCalled, "FetchTmdbById should not be called as separate refresh logic was removed");
 
             var stored = await dbService.GetMovie(30);
             Assert.NotNull(stored);
             Assert.Equal(9.1, stored.VoteAverage);
             Assert.Equal(99.0, stored.Popularity);
-            Assert.Equal("https://image.tmdb.org/t/p/original/fetched.jpg", stored.PosterUrl);
+            Assert.Equal("https://image.tmdb.org/t/p/original/resolved.jpg", stored.PosterUrl);
         }
         [Fact]
         public async Task StoreMovie_DirectInsert_Works()
@@ -176,11 +180,15 @@ namespace vkinegrab.Tests
 
         private class FakeCsfdScraper : ICsfdScraper
         {
-            public Task<CsfdMovie> ScrapeMovie(int movieId)
-            {
-                var csfd = new CsfdMovie { Id = movieId, Title = movieId == 2 ? "New Movie" : "Unknown" };
-                return Task.FromResult(csfd);
-            }
+                public string? ReceivedExistingImdbId { get; private set; }
+
+                public Task<CsfdMovie> ScrapeMovie(int movieId, string? existingImdbId = null)
+                {
+                    ReceivedExistingImdbId = existingImdbId;
+                    var csfd = new CsfdMovie { Id = movieId, Title = movieId == 2 ? "New Movie" : "Unknown" };
+                    if (!string.IsNullOrEmpty(existingImdbId)) csfd.ImdbId = existingImdbId;
+                    return Task.FromResult(csfd);
+                }
 
             public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
             {
@@ -208,17 +216,32 @@ namespace vkinegrab.Tests
             public bool ResolveCalled { get; private set; }
             public bool FetchByIdCalled { get; private set; }
 
-            public Task<CsfdMovie> ScrapeMovie(int movieId)
+            public Task<CsfdMovie> ScrapeMovie(int movieId, string? existingImdbId = null)
             {
                 // Return a generic CSFD movie
                 var csfd = new CsfdMovie { Id = movieId, Title = "WithIds" };
+                if (!string.IsNullOrEmpty(existingImdbId)) csfd.ImdbId = existingImdbId;
                 return Task.FromResult(csfd);
             }
 
             public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
             {
                 ResolveCalled = true;
-                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
+                var tmdb = new vkinegrab.Models.TmdbMovie
+                {
+                    Id = 500,
+                    Title = "TMDB Resolved",
+                    Overview = "Overview",
+                    PosterPath = "/resolved.jpg",
+                    BackdropPath = "/backdrop.jpg",
+                    VoteAverage = 9.1,
+                    VoteCount = 500,
+                    Popularity = 99.0,
+                    OriginalLanguage = "en",
+                    Adult = false,
+                    ReleaseDate = DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd")
+                };
+                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(tmdb);
             }
 
             public Task<vkinegrab.Models.TmdbMovie?> FetchTmdbById(int tmdbId)
@@ -250,6 +273,84 @@ namespace vkinegrab.Tests
             {
                 return Task.FromResult(new Venue { Id = 0, DetailUrl = url });
             }
+        }
+
+        [Fact]
+        public async Task CollectMoviesFromSchedules_3To12MonthOld_WeeklyInterval()
+        {
+            using var runner = MongoDbRunner.Start();
+            var connectionString = runner.ConnectionString;
+
+            var dbService = new DatabaseService(connectionString);
+
+            // Release date 6 months ago
+            var releaseDate = DateTime.UtcNow.Date.AddMonths(-6);
+
+            // Stored 5 days ago -> should be skipped (weekly interval)
+            var storedRecent = DateTime.UtcNow.Date.AddDays(-5);
+            var existing = new Movie { CsfdId = 100, Title = "SixMonths", ReleaseDate = releaseDate, StoredAt = storedRecent };
+            await dbService.StoreMovie(existing);
+
+            var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 100, MovieTitle = "SixMonths" } };
+
+            var csfdScraper = new FakeCsfdScraper();
+            var collector = new MovieCollectorService(csfdScraper, dbService);
+
+            var (fetched1, skipped1, failed1) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(0, fetched1);
+            Assert.Equal(1, skipped1);
+            Assert.Equal(0, failed1);
+
+            // Stored 8 days ago -> should be fetched (week passed)
+            var storedOld = DateTime.UtcNow.Date.AddDays(-8);
+            existing.StoredAt = storedOld;
+            await dbService.StoreMovie(existing);
+
+            var (fetched2, skipped2, failed2) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(1, fetched2);
+            Assert.Equal(0, skipped2);
+            Assert.Equal(0, failed2);
+        }
+
+        [Fact]
+        public async Task CollectMoviesFromSchedules_OlderThan12Months_TwoWeekInterval()
+        {
+            using var runner = MongoDbRunner.Start();
+            var connectionString = runner.ConnectionString;
+
+            var dbService = new DatabaseService(connectionString);
+
+            // Release date 2 years ago
+            var releaseDate = DateTime.UtcNow.Date.AddYears(-2);
+
+            // Stored 10 days ago -> should be skipped (2-week interval)
+            var storedRecent = DateTime.UtcNow.Date.AddDays(-10);
+            var existing = new Movie { CsfdId = 200, Title = "OldMovie", ReleaseDate = releaseDate, StoredAt = storedRecent };
+            await dbService.StoreMovie(existing);
+
+            var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 200, MovieTitle = "OldMovie" } };
+
+            var csfdScraper = new FakeCsfdScraper();
+            var collector = new MovieCollectorService(csfdScraper, dbService);
+
+            var (fetched1, skipped1, failed1) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(0, fetched1);
+            Assert.Equal(1, skipped1);
+            Assert.Equal(0, failed1);
+
+            // Stored 15 days ago -> should be fetched (two-week passed)
+            var storedOld = DateTime.UtcNow.Date.AddDays(-15);
+            existing.StoredAt = storedOld;
+            await dbService.StoreMovie(existing);
+
+            var (fetched2, skipped2, failed2) = await collector.CollectMoviesFromSchedulesAsync(schedules);
+
+            Assert.Equal(1, fetched2);
+            Assert.Equal(0, skipped2);
+            Assert.Equal(0, failed2);
         }
     }
 }

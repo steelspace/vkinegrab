@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace vkinegrab.Models.Dtos;
 
+[BsonIgnoreExtraElements]
 internal class MovieDto
 {
     [BsonId]
@@ -46,6 +47,10 @@ internal class MovieDto
 
     [BsonElement("poster_url")]
     public string? PosterUrl { get; set; }
+
+    // Legacy field present in older documents - keep it for compatibility
+    [BsonElement("csfd_poster_url")]
+    public string? CsfdPosterUrl { get; set; }
 
     [BsonElement("backdrop_url")]
     public string? BackdropUrl { get; set; }

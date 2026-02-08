@@ -47,6 +47,11 @@ public class ImdbResolver : IImdbResolver
         return null;
     }
 
+    public async Task<bool> ValidateImdbId(string imdbId, CsfdMovie movie)
+    {
+        return await validator.Validate(imdbId, movie);
+    }
+
     private async Task<string?> SearchImdbForTitle(string title, CsfdMovie movie)
     {
         Console.WriteLine($"  Searching IMDb for: '{title}'");

@@ -259,6 +259,17 @@ public class TmdbResolver : ITmdbResolver
             tmdbMovie.Adult = adultElement.GetBoolean();
         }
 
+        if (result.TryGetProperty("production_countries", out var productionCountriesElement) && productionCountriesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var country in productionCountriesElement.EnumerateArray())
+            {
+                if (country.TryGetProperty("name", out var nameElement))
+                {
+                    tmdbMovie.OriginCountries.Add(nameElement.GetString()!);
+                }
+            }
+        }
+
         return tmdbMovie;
     }
 

@@ -29,6 +29,7 @@ public static class MovieMergeExtensions
                 : tmdbMovie?.Overview,
             
             Origin = csfdMovie.Origin,
+            OriginCountries = tmdbMovie?.OriginCountries ?? new List<string>(),
             Genres = csfdMovie.Genres ?? new List<string>(),
             Directors = csfdMovie.Directors ?? new List<string>(),
             Cast = csfdMovie.Cast ?? new List<string>(),

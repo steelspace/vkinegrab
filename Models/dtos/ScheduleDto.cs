@@ -78,7 +78,7 @@ internal static class ScheduleDtoExtensions
                 VenueId = p.VenueId,
                 Showtimes = p.Showtimes.Select(s => new ShowtimeDto 
                 { 
-                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), 
+                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Local), 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl,
                     Badges = s.Badges.Select(b => new CinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList()
@@ -109,7 +109,7 @@ internal static class ScheduleDtoExtensions
             {
                 var showtime = new Showtime 
                 { 
-                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Utc), 
+                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Local), 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl 
                 };

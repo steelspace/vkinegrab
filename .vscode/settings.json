@@ -11,6 +11,26 @@
         "/^dotnet run QueryChristy\\.cs$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^dotnet run -- debug-showtimes 1582463 \\| Select-String -Pattern \"2/16/2026\\|Date:\" -Context 0,2$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^dotnet run -- showtimes all \"https://www\\.csfd\\.cz/kino/1-praha/\" 1 \\| Select-String -Pattern \"Date range:\\|Section 24:\\|Evald\" -Context 0,1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^dotnet run -- showtimes all \"https://www\\.csfd\\.cz/kino/1-praha/86-komorni-kino-evald/\" 10$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^dotnet run -- showtimes all \"https://www\\.csfd\\.cz/kino/1-praha/86-komorni-kino-evald/\" 3 \\| Select-String -Pattern \"Date range:\\|Christy\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^dotnet build$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

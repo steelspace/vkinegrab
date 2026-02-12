@@ -122,11 +122,11 @@ namespace vkinegrab.Tests
             Assert.Equal(2, performancesVenue1.Count);
 
             var goldPerf = performancesVenue1.First(p => p.Showtimes.Any(st => st.StartAt.Hour == 10));
-            var goldTimes = goldPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm")).OrderBy(t => t).ToList();
+            var goldTimes = goldPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)).OrderBy(t => t).ToList();
             Assert.Equal(new[] { "10:00", "11:00" }, goldTimes);
 
             var dolbyPerf = performancesVenue1.First(p => p.Showtimes.Any(st => st.StartAt.Hour == 12));
-            var dolbyTimes = dolbyPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm")).OrderBy(t => t).ToList();
+            var dolbyTimes = dolbyPerf.Showtimes.Select(st => st.StartAt.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)).OrderBy(t => t).ToList();
             Assert.Equal(new[] { "12:00" }, dolbyTimes);
 
 
@@ -196,11 +196,11 @@ namespace vkinegrab.Tests
             var date = DateOnly.FromDateTime(new DateTime(2026, 2, 1));
 
             var perfA = new Performance { MovieId = 300, MovieTitle = "M", VenueId = 1 };
-            perfA.Showtimes.Add(new Showtime { StartAt = date.ToDateTime(new TimeOnly(10, 0)), TicketsAvailable = false });
+            perfA.Showtimes.Add(new Showtime { StartAt = new TimeOnly(10, 0), TicketsAvailable = false });
             perfA.Showtimes.First().Badges.Add(new CinemaBadge { Kind = BadgeKind.Hall, Code = "Gold" });
 
             var perfB = new Performance { MovieId = 300, MovieTitle = "M", VenueId = 1 };
-            perfB.Showtimes.Add(new Showtime { StartAt = date.ToDateTime(new TimeOnly(11, 0)), TicketsAvailable = false });
+            perfB.Showtimes.Add(new Showtime { StartAt = new TimeOnly(11, 0), TicketsAvailable = false });
             perfB.Showtimes.First().Badges.Add(new CinemaBadge { Kind = BadgeKind.Hall, Code = "Gold" });
 
             var mockParser = new Mock<ICsfdRowParser>();

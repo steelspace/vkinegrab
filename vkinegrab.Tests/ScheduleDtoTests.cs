@@ -26,12 +26,11 @@ namespace vkinegrab.Tests
         }
 
         [Fact]
-        public void ToDto_ConvertsToUtc_And_Populate_ConvertsBackToPragueTime()
+        public void ToDto_PreservesTimeAsIs_And_Populate_RoundTrips()
         {
             // Arrange
-            var date = new DateOnly(2026, 2, 3); // Feb -> CET (UTC+1)
+            var date = new DateOnly(2026, 2, 3);
             var time = new TimeOnly(18, 0);
-            var dateTimeUnspec = date.ToDateTime(time); // 18:00 Unspecified
             
             var schedule = new Schedule
             {
@@ -39,16 +38,15 @@ namespace vkinegrab.Tests
                 MovieId = 1,
             };
             var performance = new Performance { VenueId = 100 };
-            performance.Showtimes.Add(new Showtime { StartAt = dateTimeUnspec, TicketsAvailable = true });
+            performance.Showtimes.Add(new Showtime { StartAt = time, TicketsAvailable = true });
             schedule.Performances.Add(performance);
 
             // Act -> ToDto
             var dto = schedule.ToDto();
             
-            // Assert DTO is UTC
-            // 18:00 CET is 17:00 UTC
+            // Assert DTO preserves time as-is
             var dtoShowtime = dto.Performances[0].Showtimes[0];
-            Assert.Equal(DateTimeKind.Utc, dtoShowtime.StartAt.Kind);
+            Assert.Equal(time, dtoShowtime.StartAt);
 
             // Roundtrip
             var newSchedule = new Schedule();
@@ -56,9 +54,8 @@ namespace vkinegrab.Tests
             
             var roundTripShowtime = newSchedule.Performances[0].Showtimes[0];
             
-            // Assert roundtrip preserves the face value
-            Assert.Equal(dateTimeUnspec, roundTripShowtime.StartAt);
-            Assert.Equal(DateTimeKind.Unspecified, roundTripShowtime.StartAt.Kind);
+            // Assert roundtrip preserves the time
+            Assert.Equal(time, roundTripShowtime.StartAt);
         }
     }
 }

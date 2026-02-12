@@ -214,69 +214,96 @@ public class PerformancesService : IPerformancesService
                 venues[cinemaId] = venue;
             }
 
-            var subHeader = section.SelectSingleNode(".//div[contains(@class,'update-box-sub-header')]");
-            var dateText = subHeader?.ChildNodes
-                                     .Where(n => n.NodeType == HtmlNodeType.Text)
-                                     .Select(n => n.InnerText)
-                                     .FirstOrDefault();
-            var scheduleDate = ParseDate(dateText);
-            var showDate = scheduleDate ?? DateOnly.FromDateTime(DateTime.Today);
-
-            var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
-            if (rows == null)
-            {
-                // Fallback for independent cinemas: look for H3 tags which typically enclose movie titles
-                rows = section.SelectNodes(".//h3");
-            }
-
-            if (rows == null)
-            {
-                continue;
-            }
-
+            // Parse performances grouped by date within this section
+            // Structure can be:
+            // 1. Multiple date headers with tables: <div class="update-box-sub-header">Date</div><table>...</table>
+            // 2. Single date header followed by table(s)
+            // 3. No date header (fallback to today)
+            
             int rowsProcessed = 0;
-            foreach (var row in rows)
+            var subHeaders = section.SelectNodes(".//div[contains(@class,'update-box-sub-header')]");
+            
+            if (subHeaders != null && subHeaders.Count > 0)
             {
-                var performance = ParsePerformance(row, showDate, requestUri);
-                if (performance == null || performance.Showtimes.Count == 0)
+                // Process each date section separately
+                foreach (var subHeader in subHeaders)
                 {
-                    continue;
-                }
-
-                performance.VenueId = cinemaId;
-                rowsProcessed++;
-                totalPerformancesParsed++;
-
-                var key = (showDate, performance.MovieId);
-                if (!schedules.TryGetValue(key, out var schedule))
-                {
-                    schedule = new Schedule
+                    var dateText = string.Join(" ", subHeader.ChildNodes
+                        .Where(n => n.NodeType == HtmlNodeType.Text)
+                        .Select(n => n.InnerText.Trim())
+                        .Where(t => !string.IsNullOrWhiteSpace(t)));
+                    
+                    var scheduleDate = ParseDate(dateText);
+                    if (scheduleDate == null)
                     {
-                        Date = showDate,
-                        MovieId = performance.MovieId,
-                        MovieTitle = performance.MovieTitle
-                    };
-                    schedules[key] = schedule;
-                }
-
-                // compute badge set for the new performance (use first showtime's badges)
-                var performanceBadgeSet = BadgeSet.From(performance.Showtimes.FirstOrDefault()?.Badges);
-
-                var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId && BadgeSet.From(p.Showtimes.FirstOrDefault()?.Badges).Equals(performanceBadgeSet));
-                if (existing != null)
-                {
-                    // merge showtimes uniquely (showtimes now contain their own badges)
-                    foreach (var st in performance.Showtimes)
+                        continue; // Skip if we can't parse the date
+                    }
+                    
+                    var showDate = scheduleDate.Value;
+                    
+                    // Find the next element sibling that is a table (performances for this date)
+                    // The table might be directly next, or wrapped in a div with class 'box-content-table-cinema'
+                    var nextSibling = subHeader.NextSibling;
+                    int tablesFound = 0;
+                    while (nextSibling != null)
                     {
-                        if (!existing.Showtimes.Any(s => s.StartAt == st.StartAt))
+                        // Skip text nodes and comments
+                        if (nextSibling.NodeType == HtmlNodeType.Element)
                         {
-                            existing.Showtimes.Add(st);
+                            // If we hit another date header, stop
+                            if (nextSibling.GetAttributeValue("class", "").Contains("update-box-sub-header"))
+                            {
+                                break;
+                            }
+                            
+                            // Check if this is a table wrapper div
+                            if (nextSibling.Name == "div" && nextSibling.GetAttributeValue("class", "").Contains("box-content-table-cinema"))
+                            {
+                                // Look for tables inside this wrapper
+                                var tablesInWrapper = nextSibling.SelectNodes(".//table[contains(@class,'cinema-table')]");
+                                if (tablesInWrapper != null)
+                                {
+                                    foreach (var table in tablesInWrapper)
+                                    {
+                                        tablesFound++;
+                                        var rows = table.SelectNodes(".//tr");
+                                        if (rows != null)
+                                        {
+                                            rowsProcessed += ProcessRows(rows, showDate, cinemaId, requestUri, schedules, ref totalPerformancesParsed);
+                                        }
+                                    }
+                                }
+                            }
+                            // Process this table if it's directly a cinema-table
+                            else if (nextSibling.Name == "table" && nextSibling.GetAttributeValue("class", "").Contains("cinema-table"))
+                            {
+                                tablesFound++;
+                                var rows = nextSibling.SelectNodes(".//tr");
+                                if (rows != null)
+                                {
+                                    rowsProcessed += ProcessRows(rows, showDate, cinemaId, requestUri, schedules, ref totalPerformancesParsed);
+                                }
+                            }
                         }
+                        nextSibling = nextSibling.NextSibling;
                     }
                 }
-                else
+            }
+            else
+            {
+                // Fallback: No date headers found, use single date for all performances (old behavior)
+                var showDate = DateOnly.FromDateTime(DateTime.Today);
+                
+                var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
+                if (rows == null)
                 {
-                    schedule.Performances.Add(performance);
+                    // Fallback for independent cinemas: look for H3 tags which typically enclose movie titles
+                    rows = section.SelectNodes(".//h3");
+                }
+
+                if (rows != null)
+                {
+                    rowsProcessed = ProcessRows(rows, showDate, cinemaId, requestUri, schedules, ref totalPerformancesParsed);
                 }
             }
             
@@ -302,6 +329,64 @@ public class PerformancesService : IPerformancesService
     private Performance? ParsePerformance(HtmlNode row, DateOnly date, Uri requestUri)
     {
         return rowParser.Parse(row, date, requestUri);
+    }
+
+    private int ProcessRows(
+        HtmlNodeCollection rows, 
+        DateOnly showDate, 
+        int cinemaId, 
+        Uri requestUri, 
+        Dictionary<(DateOnly date, int movieId), Schedule> schedules,
+        ref int totalPerformancesParsed)
+    {
+        int rowsProcessed = 0;
+        
+        foreach (var row in rows)
+        {
+            var performance = ParsePerformance(row, showDate, requestUri);
+            if (performance == null || performance.Showtimes.Count == 0)
+            {
+                continue;
+            }
+
+            performance.VenueId = cinemaId;
+            rowsProcessed++;
+            totalPerformancesParsed++;
+
+            var key = (showDate, performance.MovieId);
+            if (!schedules.TryGetValue(key, out var schedule))
+            {
+                schedule = new Schedule
+                {
+                    Date = showDate,
+                    MovieId = performance.MovieId,
+                    MovieTitle = performance.MovieTitle
+                };
+                schedules[key] = schedule;
+            }
+
+            // compute badge set for the new performance (use first showtime's badges)
+            var performanceBadgeSet = BadgeSet.From(performance.Showtimes.FirstOrDefault()?.Badges);
+
+            var existing = schedule.Performances.FirstOrDefault(p => p.VenueId == performance.VenueId && BadgeSet.From(p.Showtimes.FirstOrDefault()?.Badges).Equals(performanceBadgeSet));
+            if (existing != null)
+            {
+                // merge showtimes uniquely (showtimes now contain their own badges)
+                foreach (var st in performance.Showtimes)
+                {
+                    if (!existing.Showtimes.Any(s => s.StartAt == st.StartAt))
+                    {
+                        existing.Showtimes.Add(st);
+                    }
+                }
+            }
+            else
+            {
+                schedule.Performances.Add(performance);
+            }
+        }
+        
+        return rowsProcessed;
     }
 
 

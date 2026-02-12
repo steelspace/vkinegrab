@@ -25,7 +25,7 @@ public enum BadgeKind
 
 public class Showtime
 {
-    public DateTime StartAt { get; set; }
+    public TimeOnly StartAt { get; set; }
     public bool TicketsAvailable { get; set; }
     public string? TicketUrl { get; set; }
     public List<CinemaBadge> Badges { get; } = new();

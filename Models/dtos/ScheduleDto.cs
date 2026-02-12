@@ -48,7 +48,7 @@ public class CinemaBadgeDto
 public class ShowtimeDto
 {
     [BsonElement("start_at")]
-    public DateTime StartAt { get; set; }
+    public TimeOnly StartAt { get; set; }
 
     [BsonElement("tickets_available")]
     public bool TicketsAvailable { get; set; }
@@ -65,27 +65,6 @@ public class ShowtimeDto
 
 internal static class ScheduleDtoExtensions
 {
-    private static TimeZoneInfo PragueTimeZone { get; } = GetPragueTimeZone();
-
-    private static TimeZoneInfo GetPragueTimeZone()
-    {
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById("Central Europe Standard Time");
-        }
-        catch
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById("Europe/Prague");
-            }
-            catch
-            {
-                return TimeZoneInfo.Local;
-            }
-        }
-    }
-
     public static ScheduleDto ToDto(this Schedule schedule)
         => new ScheduleDto
         {
@@ -99,7 +78,7 @@ internal static class ScheduleDtoExtensions
                 VenueId = p.VenueId,
                 Showtimes = p.Showtimes.Select(s => new ShowtimeDto 
                 { 
-                    StartAt = TimeZoneInfo.ConvertTimeToUtc(s.StartAt, PragueTimeZone), 
+                    StartAt = s.StartAt, 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl,
                     Badges = s.Badges.Select(b => new CinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList()
@@ -131,7 +110,7 @@ internal static class ScheduleDtoExtensions
             {
                 var showtime = new Showtime 
                 { 
-                    StartAt = TimeZoneInfo.ConvertTimeFromUtc(s.StartAt, PragueTimeZone), 
+                    StartAt = s.StartAt, 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl 
                 };

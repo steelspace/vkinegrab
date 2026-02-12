@@ -35,12 +35,11 @@ public class ShowtimeExtractor : IShowtimeExtractor
                             continue;
                         }
 
-                        var start = date.ToDateTime(time);
-                        if (seen.Add(start))
+                        if (seen.Add(date.ToDateTime(time)))
                         {
                             yield return new Showtime
                             {
-                                StartAt = start,
+                                StartAt = time,
                                 TicketsAvailable = true,
                                 TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
                             };
@@ -56,12 +55,11 @@ public class ShowtimeExtractor : IShowtimeExtractor
                         continue;
                     }
 
-                    var start = date.ToDateTime(time);
-                    if (seen.Add(start))
+                    if (seen.Add(date.ToDateTime(time)))
                     {
                         yield return new Showtime
                         {
-                            StartAt = start,
+                            StartAt = time,
                             TicketsAvailable = hasTicketClass,
                             TicketUrl = hasTicketClass ? ToAbsoluteUrl(cell.SelectSingleNode(".//a")?.GetAttributeValue("href", string.Empty), requestUri) : null,
                         };
@@ -81,12 +79,11 @@ public class ShowtimeExtractor : IShowtimeExtractor
                     var timeText = Clean(anchor.InnerText);
                     if (TryParseTime(timeText, out var time))
                     {
-                        var start = date.ToDateTime(time);
-                        if (seen.Add(start))
+                        if (seen.Add(date.ToDateTime(time)))
                         {
                             yield return new Showtime
                             {
-                                StartAt = start,
+                                StartAt = time,
                                 TicketsAvailable = true,
                                 TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
                             };
@@ -114,12 +111,11 @@ public class ShowtimeExtractor : IShowtimeExtractor
                         {
                             if (TryParseTime(Clean(sa.InnerText), out var stime))
                             {
-                                var sstart = date.ToDateTime(stime);
-                                if (seen.Add(sstart))
+                                if (seen.Add(date.ToDateTime(stime)))
                                 {
                                     yield return new Showtime
                                     {
-                                        StartAt = sstart,
+                                        StartAt = stime,
                                         TicketsAvailable = true,
                                         TicketUrl = ToAbsoluteUrl(sa.GetAttributeValue("href", string.Empty), requestUri),
                                     };
@@ -135,12 +131,11 @@ public class ShowtimeExtractor : IShowtimeExtractor
             {
                 if (TryParseTime(match.Value, out var time))
                 {
-                    var start = date.ToDateTime(time);
-                    if (seen.Add(start))
+                    if (seen.Add(date.ToDateTime(time)))
                     {
                         yield return new Showtime
                         {
-                            StartAt = start,
+                            StartAt = time,
                             TicketsAvailable = false, // Hard to tell without specific classes
                             TicketUrl = null
                         };

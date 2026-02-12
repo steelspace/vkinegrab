@@ -49,7 +49,14 @@ public class PerformancesService : IPerformancesService
     {
         pageUri ??= new Uri(baseUri, "/kino/1-praha/?period=all");
         var requestUri = AppendPeriod(pageUri, period);
+        
+        Console.WriteLine($"[PerformancesService] Fetching schedules from: {requestUri}");
+        Console.WriteLine($"[PerformancesService] Period: {period}");
+        
         var html = await FetchHtml(requestUri, cancellationToken).ConfigureAwait(false);
+        
+        Console.WriteLine($"[PerformancesService] Downloaded {html.Length:N0} bytes of HTML");
+        
         return ParseSchedulesAndVenues(html, requestUri);
     }
 
@@ -61,7 +68,13 @@ public class PerformancesService : IPerformancesService
             requestUri = new Uri(client.BaseAddress ?? baseUri, requestUri);
         }
 
-        return await client.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        var startTime = DateTime.UtcNow;
+        var html = await client.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+        
+        Console.WriteLine($"[PerformancesService] HTTP request completed in {elapsed:F0}ms");
+        
+        return html;
     }
 
     private static Uri AppendPeriod(Uri uri, string? period)
@@ -88,20 +101,27 @@ public class PerformancesService : IPerformancesService
     // Parse schedules and return any discovered venue metadata from the same page (best-effort)
     private (IReadOnlyList<Schedule> Schedules, IReadOnlyList<Venue> Venues) ParseSchedulesAndVenues(string html, Uri requestUri)
     {
+        Console.WriteLine($"[PerformancesService] Parsing HTML...");
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
         var sections = doc.DocumentNode.SelectNodes("//section[contains(@class,'updated-box-cinema')]");
         if (sections is null || sections.Count == 0)
         {
+            Console.WriteLine($"[PerformancesService] ⚠️ No cinema sections found in HTML");
             return (Array.Empty<Schedule>(), Array.Empty<Venue>());
         }
+        
+        Console.WriteLine($"[PerformancesService] Found {sections.Count} cinema section(s) to parse");
 
         var schedules = new Dictionary<(DateOnly date, int movieId), Schedule>();
         var venues = new Dictionary<int, Venue>();
+        int sectionIndex = 0;
+        int totalPerformancesParsed = 0;
 
         foreach (var section in sections)
         {
+            sectionIndex++;
             var idValue = section.GetAttributeValue("id", string.Empty);
             var cinemaId = ExtractInt(CinemaIdRegex, idValue);
 
@@ -120,7 +140,12 @@ public class PerformancesService : IPerformancesService
                 var urlMatch = Regex.Match(venueUrl, "/kino/[^/]+/(\\d+)(?:-[^/]+)?/?", RegexOptions.IgnoreCase);
                 if (urlMatch.Success && int.TryParse(urlMatch.Groups[1].Value, out var urlCinemaId))
                 {
+                    var oldId = cinemaId;
                     cinemaId = urlCinemaId;
+                    if (oldId != cinemaId && oldId > 0)
+                    {
+                        Console.WriteLine($"[PerformancesService] Section {sectionIndex}: Venue ID corrected from {oldId} to {cinemaId} using URL");
+                    }
                 }
             }
 
@@ -209,6 +234,7 @@ public class PerformancesService : IPerformancesService
                 continue;
             }
 
+            int rowsProcessed = 0;
             foreach (var row in rows)
             {
                 var performance = ParsePerformance(row, showDate, requestUri);
@@ -218,6 +244,8 @@ public class PerformancesService : IPerformancesService
                 }
 
                 performance.VenueId = cinemaId;
+                rowsProcessed++;
+                totalPerformancesParsed++;
 
                 var key = (showDate, performance.MovieId);
                 if (!schedules.TryGetValue(key, out var schedule))
@@ -251,10 +279,23 @@ public class PerformancesService : IPerformancesService
                     schedule.Performances.Add(performance);
                 }
             }
+            
+            if (rowsProcessed > 0)
+            {
+                var venueName = venues.ContainsKey(cinemaId) ? venues[cinemaId].Name : $"Venue #{cinemaId}";
+                Console.WriteLine($"[PerformancesService] Section {sectionIndex}: Parsed {rowsProcessed} performance(s) for {venueName} (ID: {cinemaId})");
+            }
         }
 
         var ordered = schedules.Values.OrderBy(s => s.Date).ThenBy(s => s.MovieId).ToList();
-        return (ordered, venues.Values.OrderBy(v => v.Id).ToList());
+        var venueList = venues.Values.OrderBy(v => v.Id).ToList();
+        
+        Console.WriteLine($"[PerformancesService] ✓ Parsing complete:");
+        Console.WriteLine($"[PerformancesService]   - {ordered.Count} schedule(s) for {ordered.Select(s => s.MovieId).Distinct().Count()} unique movie(s)");
+        Console.WriteLine($"[PerformancesService]   - {totalPerformancesParsed} performance(s) across {venueList.Count} venue(s)");
+        Console.WriteLine($"[PerformancesService]   - Date range: {(ordered.Any() ? $"{ordered.Min(s => s.Date):d} to {ordered.Max(s => s.Date):d}" : "N/A")}");
+        
+        return (ordered, venueList);
     }
 
 

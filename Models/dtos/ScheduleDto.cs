@@ -114,6 +114,7 @@ internal static class ScheduleDtoExtensions
             Date = DateOnly.FromDateTime(dto.Date.ToUniversalTime()),
             MovieId = dto.MovieId,
             MovieTitle = dto.MovieTitle ?? string.Empty,
+            StoredAt = dto.StoredAt
         };
 
     public static void Populate(this Schedule target, ScheduleDto dto)

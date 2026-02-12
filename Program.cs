@@ -342,6 +342,205 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("debug-showtimes", StringComparison.OrdinalIgnoreCase))
+{
+    var targetMovieId = args.Length > 1 && int.TryParse(args[1], out var parsedId) ? parsedId : 1582463; // Christy
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    
+    var schedules = await databaseService.GetSchedulesAsync();
+    var venues = await databaseService.GetVenuesAsync();
+    var venueDict = venues.ToDictionary(v => v.Id, v => v);
+    
+    Console.WriteLine("Debugging Showtimes Issue");
+    Console.WriteLine("=====================================\n");
+    
+    // Check Christy schedules from database
+    var christySchedules = schedules
+        .Where(s => s.Date == today && s.MovieId == targetMovieId)
+        .ToList();
+    
+    if (!christySchedules.Any())
+    {
+        Console.WriteLine("No schedules found for specified movie.");
+        return;
+    }
+    
+    Console.WriteLine($"Found {christySchedules.Count} schedule record(s) for movie ID {targetMovieId} on {today:D}\n");
+    
+    foreach (var schedule in christySchedules)
+    {
+        Console.WriteLine($"Schedule: {schedule.MovieTitle} (ID: {schedule.MovieId})");
+        Console.WriteLine($"  Date: {schedule.Date}");
+        Console.WriteLine($"  StoredAt: {schedule.StoredAt} (UTC)");
+        Console.WriteLine($"  Age: {(DateTime.UtcNow - schedule.StoredAt).TotalHours:F1} hours old");
+        Console.WriteLine($"  Total performances: {schedule.Performances.Count}");
+        Console.WriteLine($"  Venue IDs: {string.Join(", ", schedule.Performances.Select(p => p.VenueId).Distinct().OrderBy(id => id))}");
+        Console.WriteLine();
+        
+        var performancesByVenue = schedule.Performances
+            .GroupBy(p => p.VenueId)
+            .OrderBy(g => g.Key);
+        
+        foreach (var venueGroup in performancesByVenue)
+        {
+            var venueId = venueGroup.Key;
+            var venue = venueDict.TryGetValue(venueId, out var v) ? v : null;
+            var venueName = venue != null 
+                ? $"{venue.Name}{(string.IsNullOrEmpty(venue.City) ? "" : $" ({venue.City})")}"
+                : $"UNKNOWN VENUE";
+            
+            var allShowtimes = venueGroup
+                .SelectMany(p => p.Showtimes)
+                .OrderBy(s => s.StartAt)
+                .Select(s => s.StartAt.ToString("HH:mm"))
+                .Distinct();
+            
+            Console.WriteLine($"  Venue {venueId}: {venueName}");
+            Console.WriteLine($"    Times: {string.Join(", ", allShowtimes)}");
+        }
+    }
+    
+    // Check total schedules in DB
+    Console.WriteLine($"\n\nTotal schedules in database: {schedules.Count}");
+    Console.WriteLine($"  For today ({today:d}): {schedules.Count(s => s.Date == today)}");
+    Console.WriteLine($"  For future dates: {schedules.Count(s => s.Date > today)}");
+    Console.WriteLine($"  For past dates: {schedules.Count(s => s.Date < today)}");
+    
+    // Now check what the live scraper returns
+    Console.WriteLine("\n\nComparing with LIVE CSFD data:");
+    Console.WriteLine(new string('=', 60));
+    
+    try
+    {
+        var perfService = serviceProvider.GetRequiredService<IPerformancesService>();
+        var liveSchedules = await perfService.GetSchedules(new Uri("https://www.csfd.cz/kino/1-praha/?period=today"), "today");
+        var liveChristy = liveSchedules.Where(s => s.MovieId == targetMovieId).ToList();
+        
+        if (liveChristy.Any())
+        {
+            Console.WriteLine($"\nLive CSFD shows Christy at {liveChristy.Sum(s => s.Performances.Count)} venue(s):");
+            
+            foreach (var schedule in liveChristy)
+            {
+                var liveVenueIds = schedule.Performances.Select(p => p.VenueId).Distinct().OrderBy(id => id).ToList();
+                Console.WriteLine($"  Venue IDs: {string.Join(", ", liveVenueIds)}");
+                
+                foreach (var perf in schedule.Performances.OrderBy(p => p.VenueId))
+                {
+                    var venue = venueDict.TryGetValue(perf.VenueId, out var v) ? v : null;
+                    var venueName = venue != null ? venue.Name : $"Unknown #{perf.VenueId}";
+                    var times = perf.Showtimes.OrderBy(s => s.StartAt).Select(s => s.StartAt.ToString("HH:mm"));
+                    Console.WriteLine($"    Venue {perf.VenueId} ({venueName}): {string.Join(", ", times)}");
+                }
+            }
+            
+            // Show differences
+            Console.WriteLine("\n\nVenue Discrepancies:");
+            Console.WriteLine(new string('-', 60));
+            var dbVenueIds = new HashSet<int>(christySchedules.SelectMany(s => s.Performances.Select(p => p.VenueId)));
+            var liveVenueIdSet = new HashSet<int>(liveChristy.SelectMany(s => s.Performances.Select(p => p.VenueId)));
+            
+            var onlyInDb = dbVenueIds.Except(liveVenueIdSet).OrderBy(id => id).ToList();
+            var onlyInLive = liveVenueIdSet.Except(dbVenueIds).OrderBy(id => id).ToList();
+            
+            if (onlyInDb.Any())
+            {
+                Console.WriteLine($"❌ In database but NOT on live CSFD ({onlyInDb.Count}):");
+                foreach (var id in onlyInDb)
+                {
+                    var name = venueDict.TryGetValue(id, out var v) ? v.Name : $"Unknown #{id}";
+                    Console.WriteLine($"   - Venue {id}: {name}");
+                }
+            }
+            
+            if (onlyInLive.Any())
+            {
+                Console.WriteLine($"⚠️  On live CSFD but NOT in database ({onlyInLive.Count}):");
+                foreach (var id in onlyInLive)
+                {
+                    var name = venueDict.TryGetValue(id, out var v) ? v.Name : $"Unknown #{id}";
+                    Console.WriteLine($"   - Venue {id}: {name}");
+                }
+            }
+            
+            if (!onlyInDb.Any() && !onlyInLive.Any())
+            {
+                Console.WriteLine("✓ Database and live CSFD match perfectly!");
+            }
+        }
+        else
+        {
+            Console.WriteLine("\nLive CSFD shows NO Christy showtimes.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"\nFailed to fetch live data: {ex.Message}");
+    }
+    
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("movie-showtimes", StringComparison.OrdinalIgnoreCase))
+{
+    var movieName = args.Length > 1 ? string.Join(" ", args.Skip(1)) : "Christy";
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    
+    var schedules = await databaseService.GetSchedulesAsync();
+    var matchingSchedules = schedules
+        .Where(s => s.Date == today && s.MovieTitle != null && 
+                    s.MovieTitle.Contains(movieName, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+    
+    if (!matchingSchedules.Any())
+    {
+        Console.WriteLine($"No showtimes found for '{movieName}' on {today:D}.");
+        return;
+    }
+    
+    var venues = await databaseService.GetVenuesAsync();
+    var venueDict = venues.ToDictionary(v => v.Id, v => v);
+    
+    Console.WriteLine($"Showtimes for '{movieName}' on {today:D}");
+    Console.WriteLine("========================================================\n");
+    
+    foreach (var schedule in matchingSchedules)
+    {
+        Console.WriteLine($"Movie: {schedule.MovieTitle} (ID: {schedule.MovieId})");
+        Console.WriteLine("--------------------------------------------------------\n");
+        
+        var performancesByVenue = schedule.Performances
+            .GroupBy(p => p.VenueId)
+            .OrderBy(g => g.Key);
+        
+        foreach (var venueGroup in performancesByVenue)
+        {
+            var venueId = venueGroup.Key;
+            var venueName = venueDict.TryGetValue(venueId, out var venue) 
+                ? $"{venue.Name}{(string.IsNullOrEmpty(venue.City) ? "" : $" ({venue.City})")}"
+                : $"Venue #{venueId}";
+            
+            var allShowtimes = venueGroup
+                .SelectMany(p => p.Showtimes)
+                .OrderBy(s => s.StartAt)
+                .Select(s => 
+                {
+                    var time = s.StartAt.ToString("HH:mm");
+                    var ticketIndicator = s.TicketsAvailable ? " ✓" : "";
+                    return time + ticketIndicator;
+                })
+                .Distinct();
+            
+            Console.WriteLine($"  {venueName}");
+            Console.WriteLine($"    Times: {string.Join(", ", allShowtimes)}");
+            Console.WriteLine();
+        }
+    }
+    
+    Console.WriteLine("✓ = Tickets available for online purchase");
+    return;
+}
+
 var scraper = serviceProvider.GetRequiredService<ICsfdScraper>();
 var movieId = 1580037;
 

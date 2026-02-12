@@ -111,9 +111,13 @@ public class PerformancesService : IPerformancesService
             var venueUrl = venueLink != null ? ToAbsoluteUrl(venueLink.GetAttributeValue("href", string.Empty), requestUri) : null;
 
             // If the venue link contains an explicit numeric ID (e.g. /kino/1-praha/110-slug/), prefer it over the section id
+            // IMPORTANT: Only match if there's a venue-specific segment after the region (e.g. /110-name/)
             if (!string.IsNullOrWhiteSpace(venueUrl))
             {
-                var urlMatch = Regex.Match(venueUrl, "/kino/(?:[^/]+/)?(\\d+)", RegexOptions.IgnoreCase);
+                // This regex requires a second path segment with a number (the venue ID)
+                // Pattern: /kino/{region}/{venueId}-{slug}/ or /kino/{region}/{venueId}/
+                // It will NOT match just /kino/1-praha/ (to avoid capturing region ID as venue ID)
+                var urlMatch = Regex.Match(venueUrl, "/kino/[^/]+/(\\d+)(?:-[^/]+)?/?", RegexOptions.IgnoreCase);
                 if (urlMatch.Success && int.TryParse(urlMatch.Groups[1].Value, out var urlCinemaId))
                 {
                     cinemaId = urlCinemaId;

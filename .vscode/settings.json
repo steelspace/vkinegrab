@@ -7,6 +7,10 @@
         "/^dotnet test vkinegrab\\.Tests/vkinegrab\\.Tests\\.csproj$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^dotnet run QueryChristy\\.cs$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

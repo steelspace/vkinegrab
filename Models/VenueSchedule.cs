@@ -6,4 +6,5 @@ public class Schedule
     public int MovieId { get; set; }
     public string? MovieTitle { get; set; }
     public List<Performance> Performances { get; } = new();
+    public DateTime StoredAt { get; set; }
 }

@@ -82,4 +82,36 @@ internal class MovieDto
 
     [BsonElement("stored_at")]
     public DateTime StoredAt { get; set; }
+
+    public Movie ToMovie()
+    {
+        return new Movie
+        {
+            CsfdId = CsfdId,
+            TmdbId = TmdbId,
+            ImdbId = ImdbId,
+            Title = Title,
+            OriginalTitle = OriginalTitle,
+            Year = Year,
+            Duration = Duration,
+            Rating = Rating,
+            Description = Description,
+            Origin = Origin,
+            OriginCountries = OriginCountries ?? new List<string>(),
+            Genres = Genres ?? new List<string>(),
+            Directors = Directors ?? new List<string>(),
+            Cast = Cast ?? new List<string>(),
+            PosterUrl = PosterUrl,
+            CsfdPosterUrl = CsfdPosterUrl,
+            BackdropUrl = BackdropUrl,
+            VoteAverage = VoteAverage,
+            VoteCount = VoteCount,
+            Popularity = Popularity,
+            OriginalLanguage = OriginalLanguage,
+            Adult = Adult,
+            LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
+            ReleaseDate = ReleaseDate,
+            StoredAt = StoredAt
+        };
+    }
 }

@@ -228,42 +228,49 @@ public class DatabaseService : IDatabaseService
         try
         {
             var storedMovie = await moviesCollection.Find(m => m.CsfdId == csfdId).FirstOrDefaultAsync();
-            
-            if (storedMovie == null)
-                return null;
-
-            return new Movie
-            {
-                CsfdId = storedMovie.CsfdId,
-                TmdbId = storedMovie.TmdbId,
-                ImdbId = storedMovie.ImdbId,
-                Title = storedMovie.Title,
-                OriginalTitle = storedMovie.OriginalTitle,
-                Year = storedMovie.Year,
-                Duration = storedMovie.Duration,
-                Rating = storedMovie.Rating,
-                Description = storedMovie.Description,
-                Origin = storedMovie.Origin,
-                OriginCountries = storedMovie.OriginCountries ?? new List<string>(),
-                Genres = storedMovie.Genres,
-                Directors = storedMovie.Directors,
-                Cast = storedMovie.Cast,
-                PosterUrl = storedMovie.PosterUrl,
-                CsfdPosterUrl = storedMovie.CsfdPosterUrl,
-                BackdropUrl = storedMovie.BackdropUrl,
-                VoteAverage = storedMovie.VoteAverage,
-                VoteCount = storedMovie.VoteCount,
-                Popularity = storedMovie.Popularity,
-                OriginalLanguage = storedMovie.OriginalLanguage,
-                Adult = storedMovie.Adult,
-                LocalizedTitles = storedMovie.LocalizedTitles,
-                ReleaseDate = storedMovie.ReleaseDate,
-                StoredAt = storedMovie.StoredAt
-            };
+            return storedMovie?.ToMovie();
         }
         catch (MongoException ex)
         {
             throw new InvalidOperationException($"Failed to retrieve movie with ID {csfdId}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves all movies from the database.
+    /// </summary>
+    public async Task<IReadOnlyList<Movie>> GetAllMoviesAsync()
+    {
+        try
+        {
+            var dtos = await moviesCollection.Find(_ => true).ToListAsync();
+            return dtos.Select(d => d.ToMovie()).ToList();
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve all movies", ex);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves movies that are missing critical metadata (like TMDB ID or description).
+    /// </summary>
+    public async Task<IReadOnlyList<Movie>> GetMoviesWithMissingMetadataAsync()
+    {
+        try
+        {
+            var filter = Builders<MovieDto>.Filter.Or(
+                Builders<MovieDto>.Filter.Eq(m => m.TmdbId, null),
+                Builders<MovieDto>.Filter.Eq(m => m.Description, null),
+                Builders<MovieDto>.Filter.Eq(m => m.Description, string.Empty)
+            );
+
+            var dtos = await moviesCollection.Find(filter).ToListAsync();
+            return dtos.Select(d => d.ToMovie()).ToList();
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve movies with missing metadata", ex);
         }
     }
 

@@ -10,6 +10,8 @@ public class Movie
     public string? Title { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Year { get; set; }
+    public string? Duration { get; set; }
+    public string? Rating { get; set; }
     public string? Description { get; set; }
     public string? Origin { get; set; }
     public List<string> OriginCountries { get; set; } = new();

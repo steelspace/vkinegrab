@@ -16,25 +16,21 @@ public class PerformancesService : IPerformancesService
     private static readonly Regex TimeRegex = new("\\b\\d{1,2}:\\d{2}\\b", RegexOptions.Compiled);
     private static readonly string[] TimeFormats = new[] { "H:mm", "HH:mm" };
 
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly Uri baseUri;
 
     private readonly ICsfdRowParser rowParser;
 
-    public PerformancesService(HttpClient? httpClient = null, Uri? baseUri = null)
-        : this(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), httpClient, baseUri)
+    public PerformancesService(IHttpClientFactory httpClientFactory, Uri? baseUri = null)
+        : this(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), httpClientFactory, baseUri)
     {
     }
 
-    public PerformancesService(ICsfdRowParser rowParser, HttpClient? httpClient = null, Uri? baseUri = null)
+    public PerformancesService(ICsfdRowParser rowParser, IHttpClientFactory httpClientFactory, Uri? baseUri = null)
     {
         this.rowParser = rowParser ?? throw new ArgumentNullException(nameof(rowParser));
+        this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         this.baseUri = baseUri ?? DefaultBaseUri;
-        this.httpClient = httpClient ?? CreateDefaultClient(this.baseUri);
-        if (this.httpClient.BaseAddress is null)
-        {
-            this.httpClient.BaseAddress = this.baseUri;
-        }
     }
 
     public async Task<IReadOnlyList<Schedule>> GetSchedules(
@@ -57,17 +53,15 @@ public class PerformancesService : IPerformancesService
         return ParseSchedulesAndVenues(html, requestUri);
     }
 
-    private static HttpClient CreateDefaultClient(Uri baseUri)
+    private async Task<string> FetchHtml(Uri requestUri, CancellationToken cancellationToken)
     {
-        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        var client = new HttpClient(handler, disposeHandler: true)
+        var client = httpClientFactory.CreateClient("Csfd");
+        if (!requestUri.IsAbsoluteUri)
         {
-            BaseAddress = baseUri
-        };
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "cs-CZ,cs;q=0.9,en;q=0.8");
-        return client;
+            requestUri = new Uri(client.BaseAddress ?? baseUri, requestUri);
+        }
+
+        return await client.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
     private static Uri AppendPeriod(Uri uri, string? period)
@@ -89,16 +83,6 @@ public class PerformancesService : IPerformancesService
         query += $"period={Uri.EscapeDataString(period)}";
         builder.Query = query;
         return builder.Uri;
-    }
-
-    private async Task<string> FetchHtml(Uri requestUri, CancellationToken cancellationToken)
-    {
-        if (!requestUri.IsAbsoluteUri)
-        {
-            requestUri = new Uri(httpClient.BaseAddress ?? baseUri, requestUri);
-        }
-
-        return await httpClient.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
     // Parse schedules and return any discovered venue metadata from the same page (best-effort)

@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using vkinegrab.Models;
 using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
@@ -29,7 +30,13 @@ if (string.IsNullOrWhiteSpace(mongoConnectionString))
     return;
 }
 
-var databaseService = new DatabaseService(mongoConnectionString);
+// Set up Dependency Injection
+var services = new ServiceCollection();
+services.AddSingleton<IDatabaseService>(new DatabaseService(mongoConnectionString));
+services.AddCsfdServices(tmdbBearerToken);
+var serviceProvider = services.BuildServiceProvider();
+
+var databaseService = serviceProvider.GetRequiredService<IDatabaseService>();
 
 // Test MongoDB connection
 try
@@ -53,19 +60,40 @@ catch (Exception ex)
 if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase))
 {
     var testArgs = args.Skip(1).ToArray();
-    await vkinegrab.TestScraper.Run(testArgs);
+    var localScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
+    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory);
+    
+    if (testArgs.Length > 0 && testArgs[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
+    {
+        var period = testArgs.Length > 1 && !string.IsNullOrWhiteSpace(testArgs[1]) ? testArgs[1] : "today";
+        var pageUrl = testArgs.Length > 2 && !string.IsNullOrWhiteSpace(testArgs[2]) ? testArgs[2] : null;
+        var limit = testArgs.Length > 3 && int.TryParse(testArgs[3], out var parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+        await tester.RunCinemaShowtimes(period, pageUrl, limit);
+        return;
+    }
+
+    var maxMovies = 100;
+    if (testArgs.Length > 0 && int.TryParse(testArgs[0], out var argMax) && argMax > 0)
+    {
+        maxMovies = argMax;
+    }
+
+    await tester.RunTests(maxMovies);
     return;
 }
 
 if (args.Length > 0 && args[0].Equals("cinemas", StringComparison.OrdinalIgnoreCase))
 {
-    await PrintCinemaSchedule(args);
+    await PrintCinemaSchedule(serviceProvider, args);
     return;
 }
 
 if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
 {
-    var tester = new vkinegrab.TestScraper(tmdbBearerToken);
+    var localScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
+    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory);
     var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
     var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
     var maxMovies = args.Length > 3 && int.TryParse(args[3], out var parsedMax) && parsedMax > 0 ? parsedMax : 5;
@@ -99,8 +127,7 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
         }
     }
 
-    var performancesService = new PerformancesService();
-    var storeService = new SchedulesStoreService(performancesService, databaseService);
+    var storeService = serviceProvider.GetRequiredService<SchedulesStoreService>();
     var (schedules, storedSchedules, failedSchedules, storedVenues, failedVenues) = await storeService.StoreSchedulesAndVenuesAsync(pageUri, period);
 
     if ((schedules?.Count ?? 0) == 0 && storedSchedules + failedSchedules == 0)
@@ -145,8 +172,7 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
         }
     }
 
-    var performancesService = new PerformancesService();
-    var storeService = new SchedulesStoreService(performancesService, databaseService);
+    var storeService = serviceProvider.GetRequiredService<SchedulesStoreService>();
 
     // Fetch + store in one step and obtain schedules for the movie collector (avoids double-fetch)
     IReadOnlyList<Schedule> schedules;
@@ -173,8 +199,7 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
         return;
     }
 
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var collector = new MovieCollectorService(csfdScraper, databaseService);
+    var collector = serviceProvider.GetRequiredService<MovieCollectorService>();
 
     Console.WriteLine("Collecting movies from newly grabbed schedules...");
     var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
@@ -189,7 +214,7 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
 if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Grabbing venues referenced by stored performances...");
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
+    var csfdScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
 
     var schedules = await databaseService.GetSchedulesAsync();
     var venueIds = schedules
@@ -264,9 +289,7 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
         }
     }
 
-    var csfdScraper = new CsfdScraper(tmdbBearerToken);
-    var performancesService = new PerformancesService();
-    var collector = new MovieCollectorService(csfdScraper, databaseService);
+    var collector = serviceProvider.GetRequiredService<MovieCollectorService>();
 
     Console.WriteLine("Collecting movies from stored schedules...");
     var schedules = await databaseService.GetSchedulesAsync();
@@ -276,7 +299,7 @@ if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.Ordinal
     return;
 }
 
-var scraper = new CsfdScraper(tmdbBearerToken);
+var scraper = serviceProvider.GetRequiredService<ICsfdScraper>();
 var movieId = 1580037;
 
 if (args.Length > 0)
@@ -290,31 +313,30 @@ if (args.Length > 0)
 
 try
 {
-    var movie = await scraper.ScrapeMovie(movieId);
-        var tmdbMovie = await scraper.ResolveTmdb(movie);
-
-        // Merge the movies
-        var mergedMovie = movie.Merge(tmdbMovie);
-        
-        // Store in database
-        try
-        {
-            await databaseService.StoreMovie(mergedMovie);
-            Console.WriteLine("✓ Movie stored in MongoDB");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"⚠ Failed to store movie in database: {ex.Message}");
-        }
+    var metadataOrchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();
+    var existingMovie = await databaseService.GetMovie(movieId);
+    var mergedMovie = await metadataOrchestrator.ResolveMovieMetadataAsync(movieId, existingMovie);
+    
+    // Store in database
+    try
+    {
+        await databaseService.StoreMovie(mergedMovie);
+        Console.WriteLine("✓ Movie stored in MongoDB");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ Failed to store movie in database: {ex.Message}");
+    }
 
     Console.WriteLine("--------------------------------------------------");
+    var movie = mergedMovie; // Use the merged movie for display
     Console.WriteLine($"CSFD SOURCE ID: {movieId}");
-    Console.WriteLine($"ID: {movie.Id}");
+    Console.WriteLine($"ID: {movie.CsfdId}"); // Note: Movie model uses CsfdId for the CSFD ID
     Console.WriteLine($"TITLE: {movie.Title}");
     Console.WriteLine($"YEAR: {movie.Year}");
     Console.WriteLine($"ORIGIN: {movie.Origin}");
-    var originCountriesDisplay = movie.Origins != null && movie.Origins.Count > 0
-        ? string.Join(", ", movie.Origins)
+    var originCountriesDisplay = movie.OriginCountries != null && movie.OriginCountries.Count > 0
+        ? string.Join(", ", movie.OriginCountries)
         : "N/A";
     Console.WriteLine($"ORIGIN COUNTRIES: {originCountriesDisplay}");
     Console.WriteLine($"DURATION: {movie.Duration}");
@@ -323,27 +345,25 @@ try
     Console.WriteLine($"DIRECTORS: {string.Join(", ", movie.Directors)}");
     Console.WriteLine($"CAST (First 10): {string.Join(", ", movie.Cast.Take(10))}");
     Console.WriteLine($"POSTER: {movie.PosterUrl}");
-    Console.WriteLine($"IMDB: {movie.ImdbUrl ?? "Not found"}");
+    Console.WriteLine($"IMDB: {movie.ImdbId ?? "Not found"}");
 
-    if (tmdbMovie != null)
+    if (movie.TmdbId != null)
     {
         Console.WriteLine("--------------------------------------------------");
         Console.WriteLine("TMDB INFO:");
-        Console.WriteLine($"  ID: {tmdbMovie.Id}");
-        Console.WriteLine($"  URL: {tmdbMovie.Url}");
-        Console.WriteLine($"  TITLE: {tmdbMovie.Title}");
-        Console.WriteLine($"  ORIGINAL TITLE: {tmdbMovie.OriginalTitle}");
-        Console.WriteLine($"  RELEASE DATE: {tmdbMovie.ReleaseDate}");
-        Console.WriteLine($"  RATING: {tmdbMovie.VoteAverage:F1}/10 ({tmdbMovie.VoteCount} votes)");
-        Console.WriteLine($"  POPULARITY: {tmdbMovie.Popularity:F1}");
-        Console.WriteLine($"  LANGUAGE: {tmdbMovie.OriginalLanguage}");
-        Console.WriteLine($"  ADULT: {tmdbMovie.Adult}");
-        Console.WriteLine($"  GENRE IDS: {string.Join(", ", tmdbMovie.GenreIds)}");
-        Console.WriteLine($"  POSTER: {tmdbMovie.FullPosterUrl ?? "N/A"}");
-        Console.WriteLine($"  BACKDROP: {tmdbMovie.FullBackdropUrl ?? "N/A"}");
-        if (!string.IsNullOrWhiteSpace(tmdbMovie.Overview))
+        Console.WriteLine($"  ID: {movie.TmdbId}");
+        Console.WriteLine($"  TITLE: {movie.Title}");
+        Console.WriteLine($"  ORIGINAL TITLE: {movie.OriginalTitle}");
+        Console.WriteLine($"  RELEASE DATE: {movie.ReleaseDate?.ToString("yyyy-MM-dd")}");
+        Console.WriteLine($"  RATING: {movie.VoteAverage:F1}/10 ({movie.VoteCount} votes)");
+        Console.WriteLine($"  POPULARITY: {movie.Popularity:F1}");
+        Console.WriteLine($"  LANGUAGE: {movie.OriginalLanguage}");
+        Console.WriteLine($"  ADULT: {movie.Adult}");
+        Console.WriteLine($"  POSTER: {movie.PosterUrl ?? "N/A"}");
+        Console.WriteLine($"  BACKDROP: {movie.BackdropUrl ?? "N/A"}");
+        if (!string.IsNullOrWhiteSpace(movie.Description))
         {
-            Console.WriteLine($"  OVERVIEW: {tmdbMovie.Overview}");
+            Console.WriteLine($"  OVERVIEW: {movie.Description}");
         }
     }
 
@@ -363,7 +383,7 @@ catch (Exception ex)
     Console.WriteLine(ex.StackTrace);
 }
 
-static async Task PrintCinemaSchedule(string[] args)
+static async Task PrintCinemaSchedule(IServiceProvider serviceProvider, string[] args)
 {
     var remainingArgs = args.Skip(1).ToArray();
     var period = remainingArgs.Length > 0 && !string.IsNullOrWhiteSpace(remainingArgs[0])
@@ -391,7 +411,7 @@ static async Task PrintCinemaSchedule(string[] args)
         }
     }
 
-    var performancesService = new PerformancesService();
+    var performancesService = serviceProvider.GetRequiredService<IPerformancesService>();
     var schedules = await performancesService.GetSchedules(pageUri, period);
 
     Console.WriteLine($"Fetched {schedules.Count} schedules for period '{period}'.");

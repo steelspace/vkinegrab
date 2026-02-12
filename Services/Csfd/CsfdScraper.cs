@@ -9,32 +9,19 @@ namespace vkinegrab.Services.Csfd;
 
 public class CsfdScraper : ICsfdScraper
 {
-    private static readonly HttpClient client;
-    private static readonly HttpClient tmdbClient;
-    private static readonly ImdbResolver imdbResolver;
-    private static readonly Regex OriginSplitRegex = new("[/·•–—|&]", RegexOptions.Compiled);
+    private readonly IHttpClientFactory httpClientFactory;
+    private readonly ImdbResolver imdbResolver;
     private readonly TmdbResolver tmdbResolver;
+    private static readonly Regex OriginSplitRegex = new("[/·•–—|&]", RegexOptions.Compiled);
 
-    static CsfdScraper()
+    public CsfdScraper(IHttpClientFactory httpClientFactory, string tmdbBearerToken)
     {
-        // 1. Setup HttpClient with realistic headers (Crucial for CSFD)
-        var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
-        client = new HttpClient(handler);
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
-        imdbResolver = new ImdbResolver(client);
+        this.httpClientFactory = httpClientFactory;
         
-        // Setup separate HttpClient for TMDB API
-        tmdbClient = new HttpClient();
-    }
-
-    public CsfdScraper(string? tmdbBearerToken = null)
-    {
-        if (string.IsNullOrWhiteSpace(tmdbBearerToken))
-        {
-            throw new ArgumentException("TMDB Bearer Token is required. Set it using: dotnet user-secrets set \"Tmdb:BearerToken\" \"your-token\"", nameof(tmdbBearerToken));
-        }
+        var csfdClient = httpClientFactory.CreateClient("Csfd");
+        imdbResolver = new ImdbResolver(csfdClient);
+        
+        var tmdbClient = httpClientFactory.CreateClient("Tmdb");
         tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
     }
 
@@ -48,6 +35,7 @@ public class CsfdScraper : ICsfdScraper
     public async Task<CsfdMovie> ScrapeMovie(string url)
     {
         Console.WriteLine($"Downloading: {url}");
+        var client = httpClientFactory.CreateClient("Csfd");
         var html = await client.GetStringAsync(url);
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -171,6 +159,7 @@ public class CsfdScraper : ICsfdScraper
     {
         Console.WriteLine($"Downloading venue: {url}");
 
+        var client = httpClientFactory.CreateClient("Csfd");
         // Use SendAsync to capture the final request URI after redirects so we store the canonical URL
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await client.SendAsync(request);

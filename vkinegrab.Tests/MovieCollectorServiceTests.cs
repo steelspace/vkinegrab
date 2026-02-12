@@ -26,11 +26,11 @@ namespace vkinegrab.Tests
                 new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 2, MovieTitle = "New Movie" }
             };
 
-            // Fake CSFD scraper that returns a simple CsfdMovie for movie ID 2
-            var csfdScraper = new FakeCsfdScraper();
+            // Fake orchestrator that returns a simple Movie for movie ID 2
+            var orchestrator = new FakeMovieMetadataOrchestrator();
 
             var perfService = new FakePerformancesService(schedules);
-            var collector = new MovieCollectorService(csfdScraper, dbService);
+            var collector = new MovieCollectorService(orchestrator, dbService);
 
             var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
@@ -63,8 +63,8 @@ namespace vkinegrab.Tests
 
             var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 10, MovieTitle = "Recent" } };
 
-            var csfdScraper = new FakeCsfdScraper();
-            var collector = new MovieCollectorService(csfdScraper, dbService);
+            var orchestrator = new FakeMovieMetadataOrchestrator();
+            var collector = new MovieCollectorService(orchestrator, dbService);
 
             var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
@@ -89,8 +89,8 @@ namespace vkinegrab.Tests
 
             var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 20, MovieTitle = "WithIds" } };
 
-            var csfdScraper = new SpyCsfdScraper();
-            var collector = new MovieCollectorService(csfdScraper, dbService);
+            var orchestrator = new SpyMovieMetadataOrchestrator();
+            var collector = new MovieCollectorService(orchestrator, dbService);
 
             var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
@@ -98,7 +98,7 @@ namespace vkinegrab.Tests
             Assert.Equal(0, skipped);
             Assert.Equal(0, failed);
 
-            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when existing movie already has TmdbId and ImdbId");
+            Assert.False(orchestrator.ResolveCalled, "ResolveTmdb should not be called when existing movie already has TmdbId and ImdbId");
 
             var stored = await dbService.GetMovie(20);
             Assert.NotNull(stored);
@@ -122,8 +122,8 @@ namespace vkinegrab.Tests
 
             var schedules = new[] { new Schedule { Date = new System.DateOnly(2026, 2, 4), MovieId = 30, MovieTitle = "RefreshMe" } };
 
-            var csfdScraper = new SpyCsfdScraper();
-            var collector = new MovieCollectorService(csfdScraper, dbService);
+            var orchestrator = new SpyMovieMetadataOrchestrator();
+            var collector = new MovieCollectorService(orchestrator, dbService);
 
             var (fetched, skipped, failed) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
@@ -131,8 +131,8 @@ namespace vkinegrab.Tests
             Assert.Equal(0, skipped);
             Assert.Equal(0, failed);
 
-            Assert.False(csfdScraper.ResolveCalled, "ResolveTmdb should not be called when we have TmdbId");
-            Assert.True(csfdScraper.FetchByIdCalled, "FetchTmdbById should be called to refresh metadata by TmdbId");
+            Assert.False(orchestrator.ResolveCalled, "ResolveTmdb should not be called when we have TmdbId");
+            Assert.True(orchestrator.FetchByIdCalled, "FetchTmdbById should be called to refresh metadata by TmdbId");
 
             var stored = await dbService.GetMovie(30);
             Assert.NotNull(stored);
@@ -175,61 +175,46 @@ namespace vkinegrab.Tests
             }
         }
 
-        private class FakeCsfdScraper : ICsfdScraper
+        private class FakeMovieMetadataOrchestrator : IMovieMetadataOrchestrator
         {
-            public Task<CsfdMovie> ScrapeMovie(int movieId)
+            public Task<Movie> ResolveMovieMetadataAsync(int csfdId, Movie? existingMovie, CancellationToken ct = default)
             {
-                var csfd = new CsfdMovie { Id = movieId, Title = movieId == 2 ? "New Movie" : "Unknown" };
-                return Task.FromResult(csfd);
-            }
-
-            public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
-            {
-                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
-            }
-
-            public Task<vkinegrab.Models.TmdbMovie?> FetchTmdbById(int tmdbId)
-            {
-                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
+                var movie = existingMovie ?? new Movie { CsfdId = csfdId, Title = "Unknown" };
+                if (csfdId == 2) movie.Title = "New Movie";
+                movie.StoredAt = DateTime.UtcNow;
+                return Task.FromResult(movie);
             }
         }
 
-        private class SpyCsfdScraper : ICsfdScraper
+        private class SpyMovieMetadataOrchestrator : IMovieMetadataOrchestrator
         {
             public bool ResolveCalled { get; private set; }
             public bool FetchByIdCalled { get; private set; }
 
-            public Task<CsfdMovie> ScrapeMovie(int movieId)
+            public Task<Movie> ResolveMovieMetadataAsync(int csfdId, Movie? existingMovie, CancellationToken ct = default)
             {
-                // Return a generic CSFD movie
-                var csfd = new CsfdMovie { Id = movieId, Title = "WithIds", PosterUrl = "https://csfd.cz/poster.jpg" };
-                return Task.FromResult(csfd);
-            }
+                // Simulate old logic for testing skip/fetch in collector
+                var movie = existingMovie ?? new Movie { CsfdId = csfdId, Title = "WithIds" };
 
-            public Task<vkinegrab.Models.TmdbMovie?> ResolveTmdb(CsfdMovie movie)
-            {
-                ResolveCalled = true;
-                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(null);
-            }
-
-            public Task<vkinegrab.Models.TmdbMovie?> FetchTmdbById(int tmdbId)
-            {
-                FetchByIdCalled = true;
-                var tmdb = new vkinegrab.Models.TmdbMovie
+                if (existingMovie != null && existingMovie.TmdbId != 0 && !string.IsNullOrEmpty(existingMovie.ImdbId))
                 {
-                    Id = tmdbId,
-                    Title = "TMDB From Id",
-                    Overview = "Overview",
-                    PosterPath = "/fetched.jpg",
-                    BackdropPath = "/backdrop.jpg",
-                    VoteAverage = 9.1,
-                    VoteCount = 500,
-                    Popularity = 99.0,
-                    OriginalLanguage = "en",
-                    Adult = false,
-                    ReleaseDate = DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd")
-                };
-                return Task.FromResult<vkinegrab.Models.TmdbMovie?>(tmdb);
+                    // Neither ResolveCalled nor FetchByIdCalled
+                }
+                else if (existingMovie != null && existingMovie.TmdbId != 0)
+                {
+                    FetchByIdCalled = true;
+                    movie.VoteAverage = 9.1;
+                    movie.Popularity = 99.0;
+                    movie.PosterUrl = "https://image.tmdb.org/t/p/original/fetched.jpg";
+                    movie.CsfdPosterUrl = "https://csfd.cz/poster.jpg";
+                }
+                else
+                {
+                    ResolveCalled = true;
+                }
+
+                movie.StoredAt = DateTime.UtcNow;
+                return Task.FromResult(movie);
             }
         }
     }

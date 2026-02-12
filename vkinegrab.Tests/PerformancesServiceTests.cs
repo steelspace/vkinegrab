@@ -70,8 +70,10 @@ namespace vkinegrab.Tests
 
             var handler = new FakeHttpMessageHandler(html);
             var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
+            var mockFactory = new Mock<IHttpClientFactory>();
+            mockFactory.Setup(f => f.CreateClient("Csfd")).Returns(client);
 
-            var service = new PerformancesService(client, new System.Uri("https://www.csfd.cz/"));
+            var service = new PerformancesService(mockFactory.Object, new System.Uri("https://www.csfd.cz/"));
 
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
@@ -107,7 +109,9 @@ namespace vkinegrab.Tests
 
             var handler2 = new FakeHttpMessageHandler(htmlBadge);
             var client2 = new HttpClient(handler2) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
-            var service2 = new PerformancesService(client2, new System.Uri("https://www.csfd.cz/"));
+            var mockFactory2 = new Mock<IHttpClientFactory>();
+            mockFactory2.Setup(f => f.CreateClient("Csfd")).Returns(client2);
+            var service2 = new PerformancesService(mockFactory2.Object, new System.Uri("https://www.csfd.cz/"));
 
             var (schedulesBadge, venuesBadge) = await service2.GetSchedulesWithVenues(null, "all");
             // Find schedule for Movie X (id 200)
@@ -128,7 +132,9 @@ namespace vkinegrab.Tests
 
             // additional regression test: even if the service is constructed with a file:// base, we should resolve hrefs to https
             var fileClient = new HttpClient(new FakeHttpMessageHandler(html)) { BaseAddress = new System.Uri("file:///") };
-            var fileService = new PerformancesService(fileClient, new System.Uri("file:///"));
+            var mockFactoryFile = new Mock<IHttpClientFactory>();
+            mockFactoryFile.Setup(f => f.CreateClient("Csfd")).Returns(fileClient);
+            var fileService = new PerformancesService(mockFactoryFile.Object, new System.Uri("file:///"));
             var (s2, venues2) = await fileService.GetSchedulesWithVenues(null, "all");
             var v1file = venues2.First(v => v.Id == 1);
 
@@ -184,6 +190,8 @@ namespace vkinegrab.Tests
 
             var handler = new FakeHttpMessageHandler(html);
             var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
+            var mockFactory = new Mock<IHttpClientFactory>();
+            mockFactory.Setup(f => f.CreateClient("Csfd")).Returns(client);
 
             var date = DateOnly.FromDateTime(new DateTime(2026, 2, 1));
 
@@ -200,7 +208,7 @@ namespace vkinegrab.Tests
                       .Returns(perfA)
                       .Returns(perfB);
 
-            var service = new PerformancesService(mockParser.Object, client, new System.Uri("https://www.csfd.cz/"));
+            var service = new PerformancesService(mockParser.Object, mockFactory.Object, new System.Uri("https://www.csfd.cz/"));
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
             var schedule = schedules.First(s => s.MovieId == 300);

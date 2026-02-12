@@ -84,6 +84,11 @@ internal sealed class TmdbResolver
     {
         var candidates = new List<string?>();
 
+        if (!string.IsNullOrWhiteSpace(movie.OriginalTitle))
+        {
+            candidates.Add(movie.OriginalTitle);
+        }
+
         var englishTitle = GetLocalizedTitle(movie, "USA", "United States", "Spojené státy", "Velká Británie", "United Kingdom", "UK", "Spojené království");
         if (!string.IsNullOrWhiteSpace(englishTitle))
         {
@@ -130,6 +135,30 @@ internal sealed class TmdbResolver
 
     private async Task<TmdbMovie?> SearchTmdb(string title, string? year)
     {
+        var yearDigits = ExtractYearDigits(year);
+        var tmdbMovie = await ExecuteSearch(title, yearDigits);
+
+        // If not found and we had a year, try +/- 1 year (common discrepancies)
+        if (tmdbMovie == null && !string.IsNullOrEmpty(yearDigits) && int.TryParse(yearDigits, out var y))
+        {
+            tmdbMovie = await ExecuteSearch(title, (y + 1).ToString());
+            if (tmdbMovie == null)
+            {
+                tmdbMovie = await ExecuteSearch(title, (y - 1).ToString());
+            }
+        }
+
+        // Final fallback: search without year
+        if (tmdbMovie == null)
+        {
+            tmdbMovie = await ExecuteSearch(title, null);
+        }
+
+        return tmdbMovie;
+    }
+
+    private async Task<TmdbMovie?> ExecuteSearch(string title, string? yearDigits)
+    {
         var queryParams = new List<string>
         {
             $"query={Uri.EscapeDataString(title)}",
@@ -138,13 +167,9 @@ internal sealed class TmdbResolver
             "page=1"
         };
 
-        if (!string.IsNullOrWhiteSpace(year))
+        if (!string.IsNullOrWhiteSpace(yearDigits))
         {
-            var yearDigits = ExtractYearDigits(year);
-            if (!string.IsNullOrEmpty(yearDigits))
-            {
-                queryParams.Add($"year={yearDigits}");
-            }
+            queryParams.Add($"year={yearDigits}");
         }
 
         var searchUrl = $"{ApiBaseUrl}/search/movie?{string.Join("&", queryParams)}";

@@ -41,21 +41,27 @@ public class SchedulesStoreService
         IReadOnlyList<Venue> venues,
         CancellationToken cancellationToken = default)
     {
-        var storedSchedules = 0;
-        var failedSchedules = 0;
+        int storedSchedulesCount = 0;
+        int failedSchedulesCount = 0;
 
-        foreach (var s in schedules)
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 10,
+            CancellationToken = cancellationToken
+        };
+
+        await Parallel.ForEachAsync(schedules, parallelOptions, async (s, ct) =>
         {
             try
             {
                 await databaseService.StoreSchedule(s).ConfigureAwait(false);
-                storedSchedules++;
+                Interlocked.Increment(ref storedSchedulesCount);
             }
             catch
             {
-                failedSchedules++;
+                Interlocked.Increment(ref failedSchedulesCount);
             }
-        }
+        });
 
         var venuesToStore = venues.Where(v => v.Id > 0).GroupBy(v => v.Id).Select(g => g.First()).ToList();
 
@@ -75,6 +81,6 @@ public class SchedulesStoreService
             }
         }
 
-        return (storedSchedules, failedSchedules, storedVenues, failedVenues);
+        return (storedSchedulesCount, failedSchedulesCount, storedVenues, failedVenues);
     }
 }

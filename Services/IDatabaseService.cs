@@ -6,10 +6,13 @@ namespace vkinegrab.Services
 {
     public interface IDatabaseService
     {
+        Task<bool> TestConnection();
         Task StoreMovie(Movie movie);
         Task<Movie?> GetMovie(int csfdId);
         Task<IReadOnlyList<Schedule>> GetSchedulesAsync();
-
+        // Retrieval
+        Task<IReadOnlyList<Movie>> GetAllMoviesAsync();
+        Task<IReadOnlyList<Movie>> GetMoviesWithMissingMetadataAsync();
         // Schedules
         Task StoreSchedule(Schedule schedule);
         Task StoreSchedules(IEnumerable<Schedule> schedules);

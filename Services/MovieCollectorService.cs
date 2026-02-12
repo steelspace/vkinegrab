@@ -5,12 +5,12 @@ namespace vkinegrab.Services;
 
 public class MovieCollectorService
 {
-    private readonly ICsfdScraper csfdScraper;
+    private readonly IMovieMetadataOrchestrator metadataOrchestrator;
     private readonly IDatabaseService databaseService;
 
-    public MovieCollectorService(ICsfdScraper csfdScraper, IDatabaseService databaseService)
+    public MovieCollectorService(IMovieMetadataOrchestrator metadataOrchestrator, IDatabaseService databaseService)
     {
-        this.csfdScraper = csfdScraper;
+        this.metadataOrchestrator = metadataOrchestrator;
         this.databaseService = databaseService;
     }
 
@@ -23,14 +23,18 @@ public class MovieCollectorService
     {
         var uniqueMovieIds = schedules?.Select(s => s.MovieId).Where(id => id > 0).Distinct().ToList() ?? new List<int>();
 
-        var fetched = 0;
-        var skipped = 0;
-        var failed = 0;
+        int fetched = 0;
+        int skipped = 0;
+        int failed = 0;
 
-        foreach (var movieId in uniqueMovieIds)
+        var parallelOptions = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            MaxDegreeOfParallelism = 4, // Conservative default, could be 8 or more
+            CancellationToken = cancellationToken
+        };
 
+        await Parallel.ForEachAsync(uniqueMovieIds, parallelOptions, async (movieId, ct) =>
+        {
             try
             {
                 var existing = await databaseService.GetMovie(movieId);
@@ -70,54 +74,22 @@ public class MovieCollectorService
 
                 if (!shouldFetch)
                 {
-                    skipped++;
-                    continue;
+                    Interlocked.Increment(ref skipped);
+                    return;
                 }
 
-                // Scrape CSFD
-                var csfdMovie = await csfdScraper.ScrapeMovie(movieId);
-
-                // Determine how to obtain TMDB metadata:
-                // - If we have an existing TmdbId, fetch details by that ID
-                // - Otherwise, attempt to resolve via ResolveTmdb (search/IMDb)
-                TmdbMovie? tmdbMovie = null;
-                if (existing != null && existing.TmdbId.HasValue)
-                {
-                    tmdbMovie = await csfdScraper.FetchTmdbById(existing.TmdbId.Value);
-                }
-                else
-                {
-                    tmdbMovie = await csfdScraper.ResolveTmdb(csfdMovie);
-                }
-
-                var merged = csfdMovie.Merge(tmdbMovie);
-
-                // Preserve existing IDs if merge didn't produce them
-                if (existing != null)
-                {
-                    if (!merged.TmdbId.HasValue && existing.TmdbId.HasValue)
-                        merged.TmdbId = existing.TmdbId;
-
-                    if (string.IsNullOrWhiteSpace(merged.ImdbId) && !string.IsNullOrWhiteSpace(existing.ImdbId))
-                        merged.ImdbId = existing.ImdbId;
-
-                    if (string.IsNullOrWhiteSpace(merged.CsfdPosterUrl) && !string.IsNullOrWhiteSpace(existing.CsfdPosterUrl))
-                        merged.CsfdPosterUrl = existing.CsfdPosterUrl;
-
-                    if ((merged.OriginCountries == null || merged.OriginCountries.Count == 0) && existing.OriginCountries?.Count > 0)
-                        merged.OriginCountries = new List<string>(existing.OriginCountries);
-                }
+                var merged = await metadataOrchestrator.ResolveMovieMetadataAsync(movieId, existing, ct);
 
                 await databaseService.StoreMovie(merged);
-                fetched++;
+                Interlocked.Increment(ref fetched);
             }
             catch (Exception ex)
             {
-                // Log and continue (including full exception for debugging)
-                Console.WriteLine($"Failed to fetch/store movie {movieId}: {ex}");
-                failed++;
+                // Log and continue
+                Console.WriteLine($"Failed to fetch/store movie {movieId}: {ex.Message}");
+                Interlocked.Increment(ref failed);
             }
-        }
+        });
 
         return (fetched, skipped, failed);
     }

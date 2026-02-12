@@ -1,0 +1,57 @@
+using vkinegrab.Models;
+using vkinegrab.Services.Csfd;
+
+namespace vkinegrab.Services;
+
+public interface IMovieMetadataOrchestrator
+{
+    Task<Movie> ResolveMovieMetadataAsync(int csfdId, Movie? existing, CancellationToken ct = default);
+}
+
+public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
+{
+    private readonly ICsfdScraper csfdScraper;
+
+    public MovieMetadataOrchestrator(ICsfdScraper csfdScraper)
+    {
+        this.csfdScraper = csfdScraper;
+    }
+
+    public async Task<Movie> ResolveMovieMetadataAsync(int csfdId, Movie? existing, CancellationToken ct = default)
+    {
+        // 1. Scrape CSFD (This is our primary source of IDs and local titles)
+        var csfdMovie = await csfdScraper.ScrapeMovie(csfdId);
+
+        // 2. Resolve TMDB
+        TmdbMovie? tmdbMovie = null;
+        if (existing?.TmdbId.HasValue == true)
+        {
+            tmdbMovie = await csfdScraper.FetchTmdbById(existing.TmdbId.Value);
+        }
+        else
+        {
+            tmdbMovie = await csfdScraper.ResolveTmdb(csfdMovie);
+        }
+
+        // 3. Merge
+        var merged = csfdMovie.Merge(tmdbMovie);
+
+        // 4. Preserve existing fields if merge didn't update them
+        if (existing != null)
+        {
+            if (!merged.TmdbId.HasValue && existing.TmdbId.HasValue)
+                merged.TmdbId = existing.TmdbId;
+
+            if (string.IsNullOrWhiteSpace(merged.ImdbId) && !string.IsNullOrWhiteSpace(existing.ImdbId))
+                merged.ImdbId = existing.ImdbId;
+
+            if (string.IsNullOrWhiteSpace(merged.CsfdPosterUrl) && !string.IsNullOrWhiteSpace(existing.CsfdPosterUrl))
+                merged.CsfdPosterUrl = existing.CsfdPosterUrl;
+
+            if ((merged.OriginCountries == null || merged.OriginCountries.Count == 0) && existing.OriginCountries?.Count > 0)
+                merged.OriginCountries = new List<string>(existing.OriginCountries);
+        }
+
+        return merged;
+    }
+}

@@ -98,6 +98,8 @@ public class DatabaseService : IDatabaseService
             Title = movie.Title,
             OriginalTitle = movie.OriginalTitle,
             Year = movie.Year,
+            Duration = movie.Duration,
+            Rating = movie.Rating,
             Description = movie.Description,
             Origin = movie.Origin,
             OriginCountries = movie.OriginCountries ?? new List<string>(),
@@ -127,6 +129,8 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Title, storedMovie.Title)
                 .Set(m => m.OriginalTitle, storedMovie.OriginalTitle)
                 .Set(m => m.Year, storedMovie.Year)
+                .Set(m => m.Duration, storedMovie.Duration)
+                .Set(m => m.Rating, storedMovie.Rating)
                 .Set(m => m.Description, storedMovie.Description)
                 .Set(m => m.Origin, storedMovie.Origin)
                 .Set(m => m.OriginCountries, storedMovie.OriginCountries)
@@ -236,6 +240,8 @@ public class DatabaseService : IDatabaseService
                 Title = storedMovie.Title,
                 OriginalTitle = storedMovie.OriginalTitle,
                 Year = storedMovie.Year,
+                Duration = storedMovie.Duration,
+                Rating = storedMovie.Rating,
                 Description = storedMovie.Description,
                 Origin = storedMovie.Origin,
                 OriginCountries = storedMovie.OriginCountries ?? new List<string>(),

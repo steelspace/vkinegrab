@@ -24,6 +24,8 @@ public static class MovieMergeExtensions
                 : tmdbMovie?.OriginalTitle,
             
             Year = csfdMovie.Year,
+            Duration = csfdMovie.Duration,
+            Rating = csfdMovie.Rating,
             Description = !string.IsNullOrWhiteSpace(csfdMovie.Description)
                 ? csfdMovie.Description
                 : tmdbMovie?.Overview,

@@ -9,20 +9,20 @@ namespace vkinegrab;
 
 public class TestScraper
 {
-    private readonly CsfdScraper scraper;
-    private readonly HttpClient client;
+    private readonly ICsfdScraper scraper;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public TestScraper(string tmdbBearerToken)
+    public TestScraper(ICsfdScraper scraper, IHttpClientFactory httpClientFactory)
     {
-        scraper = new CsfdScraper(tmdbBearerToken);
-        client = new HttpClient();
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        this.scraper = scraper;
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<List<int>> GetMovieIdsFromTvSchedule()
     {
         Console.WriteLine("Fetching movie IDs from CSFD TV schedule (days 1-10)...");
         var movieIds = new HashSet<int>();
+        var client = httpClientFactory.CreateClient("Csfd");
         
         // Fetch from 10 consecutive days
         for (int day = 1; day <= 10; day++)
@@ -207,7 +207,7 @@ public class TestScraper
         IReadOnlyList<Schedule> schedules;
         try
         {
-            var service = new PerformancesService();
+            var service = new PerformancesService(httpClientFactory);
             schedules = await service.GetSchedules(requestUri, period);
         }
         catch (Exception ex)
@@ -324,41 +324,6 @@ public class TestScraper
         }
 
         Console.WriteLine("(*) indicates an active ticket link.");
-    }
-
-    public static async Task Run(string[] args)
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddUserSecrets<Program>()
-            .Build();
-
-        var tmdbBearerToken = configuration["Tmdb:BearerToken"];
-        
-        if (string.IsNullOrWhiteSpace(tmdbBearerToken))
-        {
-            Console.WriteLine("ERROR: TMDB Bearer Token not found!");
-            Console.WriteLine("Please set it using:");
-            Console.WriteLine("  dotnet user-secrets set \"Tmdb:BearerToken\" \"your-bearer-token-here\"");
-            return;
-        }
-
-        var tester = new TestScraper(tmdbBearerToken);
-        if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
-        {
-            var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
-            var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
-            var limit = args.Length > 3 && int.TryParse(args[3], out var parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
-            await tester.RunCinemaShowtimes(period, pageUrl, limit);
-            return;
-        }
-
-        var maxMovies = 100;
-        if (args.Length > 0 && int.TryParse(args[0], out var argMax) && argMax > 0)
-        {
-            maxMovies = argMax;
-        }
-
-        await tester.RunTests(maxMovies);
     }
 }
 

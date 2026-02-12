@@ -26,6 +26,12 @@ internal class MovieDto
     [BsonElement("year")]
     public string? Year { get; set; }
 
+    [BsonElement("duration")]
+    public string? Duration { get; set; }
+
+    [BsonElement("rating")]
+    public string? Rating { get; set; }
+
     [BsonElement("description")]
     public string? Description { get; set; }
 

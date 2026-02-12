@@ -3,6 +3,10 @@
         "/^dotnet restore && dotnet build \\./vkinegrab\\.sln$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^dotnet test vkinegrab\\.Tests/vkinegrab\\.Tests\\.csproj$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

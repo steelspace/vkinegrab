@@ -24,5 +24,41 @@ namespace vkinegrab.Tests
             Assert.Equal(new DateTime(2026, 2, 3, 0, 0, 0, DateTimeKind.Utc), dto.Date.ToUniversalTime());
             Assert.True((DateTime.UtcNow - dto.StoredAt).TotalMinutes < 1, "StoredAt should be recent (within 1 minute)");
         }
+
+        [Fact]
+        public void ToDto_ConvertsToUtc_And_Populate_ConvertsBackToPragueTime()
+        {
+            // Arrange
+            var date = new DateOnly(2026, 2, 3); // Feb -> CET (UTC+1)
+            var time = new TimeOnly(18, 0);
+            var dateTimeUnspec = date.ToDateTime(time); // 18:00 Unspecified
+            
+            var schedule = new Schedule
+            {
+                Date = date,
+                MovieId = 1,
+            };
+            var performance = new Performance { VenueId = 100 };
+            performance.Showtimes.Add(new Showtime { StartAt = dateTimeUnspec, TicketsAvailable = true });
+            schedule.Performances.Add(performance);
+
+            // Act -> ToDto
+            var dto = schedule.ToDto();
+            
+            // Assert DTO is UTC
+            // 18:00 CET is 17:00 UTC
+            var dtoShowtime = dto.Performances[0].Showtimes[0];
+            Assert.Equal(DateTimeKind.Utc, dtoShowtime.StartAt.Kind);
+
+            // Roundtrip
+            var newSchedule = new Schedule();
+            newSchedule.Populate(dto);
+            
+            var roundTripShowtime = newSchedule.Performances[0].Showtimes[0];
+            
+            // Assert roundtrip preserves the face value
+            Assert.Equal(dateTimeUnspec, roundTripShowtime.StartAt);
+            Assert.Equal(DateTimeKind.Unspecified, roundTripShowtime.StartAt.Kind);
+        }
     }
 }

@@ -65,6 +65,27 @@ public class ShowtimeDto
 
 internal static class ScheduleDtoExtensions
 {
+    private static TimeZoneInfo PragueTimeZone { get; } = GetPragueTimeZone();
+
+    private static TimeZoneInfo GetPragueTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Central Europe Standard Time");
+        }
+        catch
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Europe/Prague");
+            }
+            catch
+            {
+                return TimeZoneInfo.Local;
+            }
+        }
+    }
+
     public static ScheduleDto ToDto(this Schedule schedule)
         => new ScheduleDto
         {
@@ -78,7 +99,7 @@ internal static class ScheduleDtoExtensions
                 VenueId = p.VenueId,
                 Showtimes = p.Showtimes.Select(s => new ShowtimeDto 
                 { 
-                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Local), 
+                    StartAt = TimeZoneInfo.ConvertTimeToUtc(s.StartAt, PragueTimeZone), 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl,
                     Badges = s.Badges.Select(b => new CinemaBadgeDto { Kind = b.Kind, Code = b.Code, Description = b.Description }).ToList()
@@ -109,7 +130,7 @@ internal static class ScheduleDtoExtensions
             {
                 var showtime = new Showtime 
                 { 
-                    StartAt = DateTime.SpecifyKind(s.StartAt, DateTimeKind.Local), 
+                    StartAt = TimeZoneInfo.ConvertTimeFromUtc(s.StartAt, PragueTimeZone), 
                     TicketsAvailable = s.TicketsAvailable, 
                     TicketUrl = s.TicketUrl 
                 };

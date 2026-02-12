@@ -196,6 +196,12 @@ public class PerformancesService : IPerformancesService
             var rows = section.SelectNodes(".//table[contains(@class,'cinema-table')]//tr");
             if (rows == null)
             {
+                // Fallback for independent cinemas: look for H3 tags which typically enclose movie titles
+                rows = section.SelectNodes(".//h3");
+            }
+
+            if (rows == null)
+            {
                 continue;
             }
 

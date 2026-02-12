@@ -13,25 +13,45 @@ public class ShowtimeExtractor : IShowtimeExtractor
     public IEnumerable<Showtime> ExtractShowtimes(HtmlNode row, DateOnly date, Uri requestUri)
     {
         var cells = row.SelectNodes(".//td[contains(@class,'td-time')]");
-        if (cells == null)
-        {
-            yield break;
-        }
-
+        
         var seen = new HashSet<DateTime>();
-        foreach (var cell in cells)
+
+        if (cells != null)
         {
-            var classValue = cell.GetAttributeValue("class", string.Empty);
-            var classParts = classValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var isPast = classParts.Any(c => c.Equals("td-time-old", StringComparison.OrdinalIgnoreCase));
-            var hasTicketClass = classParts.Any(c => c.Equals("td-buy-ticket", StringComparison.OrdinalIgnoreCase));
-            var anchors = cell.SelectNodes(".//a");
-            if (anchors != null)
+            foreach (var cell in cells)
             {
-                foreach (var anchor in anchors)
+                var classValue = cell.GetAttributeValue("class", string.Empty);
+                var classParts = classValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var isPast = classParts.Any(c => c.Equals("td-time-old", StringComparison.OrdinalIgnoreCase));
+                var hasTicketClass = classParts.Any(c => c.Equals("td-buy-ticket", StringComparison.OrdinalIgnoreCase));
+                var anchors = cell.SelectNodes(".//a");
+                if (anchors != null)
                 {
-                    var timeText = Clean(anchor.InnerText);
-                    if (!TryParseTime(timeText, out var time))
+                    foreach (var anchor in anchors)
+                    {
+                        var timeText = Clean(anchor.InnerText);
+                        if (!TryParseTime(timeText, out var time))
+                        {
+                            continue;
+                        }
+
+                        var start = date.ToDateTime(time);
+                        if (seen.Add(start))
+                        {
+                            yield return new Showtime
+                            {
+                                StartAt = start,
+                                TicketsAvailable = true,
+                                TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
+                            };
+                        }
+                    }
+                }
+
+                var rawText = HtmlEntity.DeEntitize(cell.InnerText ?? string.Empty);
+                foreach (Match match in TimeRegex.Matches(rawText))
+                {
+                    if (!TryParseTime(match.Value, out var time))
                     {
                         continue;
                     }
@@ -42,30 +62,89 @@ public class ShowtimeExtractor : IShowtimeExtractor
                         yield return new Showtime
                         {
                             StartAt = start,
-                            TicketsAvailable = true,
-                            TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
+                            TicketsAvailable = hasTicketClass,
+                            TicketUrl = hasTicketClass ? ToAbsoluteUrl(cell.SelectSingleNode(".//a")?.GetAttributeValue("href", string.Empty), requestUri) : null,
                         };
                     }
                 }
             }
+        }
+        else
+        {
+            // Fallback for non-table layout: search the whole row node and its immediate following text/siblings
+            // In some layouts, showtimes are in <a> tags or just raw text following a movie title
+            var anchors = row.SelectNodes(".//a[not(contains(@href, '/film/'))]");
+            if (anchors != null)
+            {
+                foreach (var anchor in anchors)
+                {
+                    var timeText = Clean(anchor.InnerText);
+                    if (TryParseTime(timeText, out var time))
+                    {
+                        var start = date.ToDateTime(time);
+                        if (seen.Add(start))
+                        {
+                            yield return new Showtime
+                            {
+                                StartAt = start,
+                                TicketsAvailable = true,
+                                TicketUrl = ToAbsoluteUrl(anchor.GetAttributeValue("href", string.Empty), requestUri),
+                            };
+                        }
+                    }
+                }
+            }
 
-            var rawText = HtmlEntity.DeEntitize(cell.InnerText ?? string.Empty);
+            // Also search for bare times in text nodes
+            var rawText = HtmlEntity.DeEntitize(row.InnerText ?? string.Empty);
+            
+            // If it's a header-based layout, we might need to check following siblings until next H3
+            var current = row.NextSibling;
+            while (current != null && !current.Name.Equals("h3", StringComparison.OrdinalIgnoreCase) && !current.Name.Equals("tr", StringComparison.OrdinalIgnoreCase))
+            {
+                rawText += " " + HtmlEntity.DeEntitize(current.InnerText ?? string.Empty);
+                
+                // Also check for links in siblings
+                if (current.NodeType == HtmlNodeType.Element)
+                {
+                    var siblingAnchors = current.SelectNodes(".//a[not(contains(@href, '/film/'))]");
+                    if (siblingAnchors != null)
+                    {
+                        foreach (var sa in siblingAnchors)
+                        {
+                            if (TryParseTime(Clean(sa.InnerText), out var stime))
+                            {
+                                var sstart = date.ToDateTime(stime);
+                                if (seen.Add(sstart))
+                                {
+                                    yield return new Showtime
+                                    {
+                                        StartAt = sstart,
+                                        TicketsAvailable = true,
+                                        TicketUrl = ToAbsoluteUrl(sa.GetAttributeValue("href", string.Empty), requestUri),
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+                current = current.NextSibling;
+            }
+
             foreach (Match match in TimeRegex.Matches(rawText))
             {
-                if (!TryParseTime(match.Value, out var time))
+                if (TryParseTime(match.Value, out var time))
                 {
-                    continue;
-                }
-
-                var start = date.ToDateTime(time);
-                if (seen.Add(start))
-                {
-                    yield return new Showtime
+                    var start = date.ToDateTime(time);
+                    if (seen.Add(start))
                     {
-                        StartAt = start,
-                        TicketsAvailable = hasTicketClass,
-                        TicketUrl = hasTicketClass ? ToAbsoluteUrl(cell.SelectSingleNode(".//a")?.GetAttributeValue("href", string.Empty), requestUri) : null,
-                    };
+                        yield return new Showtime
+                        {
+                            StartAt = start,
+                            TicketsAvailable = false, // Hard to tell without specific classes
+                            TicketUrl = null
+                        };
+                    }
                 }
             }
         }

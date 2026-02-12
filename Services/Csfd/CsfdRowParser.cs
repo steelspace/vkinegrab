@@ -18,7 +18,15 @@ public class CsfdRowParser : ICsfdRowParser
 
     public Performance? Parse(HtmlNode row, DateOnly date, Uri requestUri)
     {
+        // 1. Try table-based layout (multiplexes)
         var movieLink = row.SelectSingleNode(".//td[contains(@class,'name')]//a[contains(@href,'/film/')]");
+        
+        // 2. Fallback for header-based or div-based layout (indie cinemas)
+        if (movieLink == null)
+        {
+            movieLink = row.SelectSingleNode(".//a[contains(@href,'/film/')]");
+        }
+
         if (movieLink == null)
         {
             return null;

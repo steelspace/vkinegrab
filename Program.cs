@@ -211,6 +211,49 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("verify-discrepancies", StringComparison.OrdinalIgnoreCase))
+{
+    var perfService = serviceProvider.GetRequiredService<IPerformancesService>();
+    var dbSchedules = await databaseService.GetSchedulesAsync();
+    var liveSchedules = await perfService.GetSchedules(new Uri("https://www.csfd.cz/kino/1-praha/?period=today"), "today");
+    
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var dbToday = dbSchedules.Where(s => s.Date == today).ToList();
+
+    Console.WriteLine($"--- Discrepancy Report ({today}) ---");
+    Console.WriteLine($"{"Movie Title",-40} | {"Live",-5} | {"DB",-5} | {"Status"}");
+    Console.WriteLine(new string('-', 70));
+
+    var allIds = liveSchedules.Select(s => s.MovieId).Union(dbToday.Select(s => s.MovieId)).Distinct();
+
+    int matches = 0;
+    int mismatches = 0;
+
+    foreach (var id in allIds)
+    {
+        var live = liveSchedules.FirstOrDefault(s => s.MovieId == id);
+        var db = dbToday.FirstOrDefault(s => s.MovieId == id);
+
+        var liveCount = live?.Performances.Sum(p => p.Showtimes.Count) ?? 0;
+        var dbCount = db?.Performances.Sum(p => p.Showtimes.Count) ?? 0;
+
+        if (liveCount != dbCount || liveCount == 0 || dbCount == 0)
+        {
+            mismatches++;
+            var title = live?.MovieTitle ?? db?.MovieTitle ?? $"Film #{id}";
+            var status = liveCount == dbCount ? "✓ Match" : (dbCount == 0 ? "❌ Missing" : (liveCount > dbCount ? "⚠️ DB Under" : "⚠️ DB Over"));
+            Console.WriteLine($"{title.PadRight(40).Substring(0, 40)} | {liveCount,-5} | {dbCount,-5} | {status}");
+        }
+        else
+        {
+            matches++;
+        }
+    }
+    Console.WriteLine(new string('-', 70));
+    Console.WriteLine($"Summary: {matches} matches, {mismatches} discrepancies.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Grabbing venues referenced by stored performances...");

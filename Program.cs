@@ -146,6 +146,14 @@ if (args.Length > 0 && args[0].Equals("store-schedules", StringComparison.Ordina
     return;
     }
 
+if (args.Length > 0 && args[0].Equals("delete-movies", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Deleting all movies from the database...");
+    await databaseService.ClearMoviesAsync();
+    Console.WriteLine("✓ All movies deleted.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnoreCase))
 {
     var remainingArgs = args.Skip(1).ToArray();
@@ -588,6 +596,14 @@ try
     Console.WriteLine($"CAST (First 10): {string.Join(", ", movie.Cast.Take(10))}");
     Console.WriteLine($"POSTER: {movie.PosterUrl}");
     Console.WriteLine($"IMDB: {movie.ImdbId ?? "Not found"}");
+    if (movie.ImdbRating.HasValue)
+    {
+        Console.WriteLine($"IMDB RATING: {movie.ImdbRating:F1}/10 ({movie.ImdbRatingCount} votes)");
+    }
+    else
+    {
+        Console.WriteLine($"IMDB RATING: N/A");
+    }
 
     if (movie.TmdbId != null)
     {

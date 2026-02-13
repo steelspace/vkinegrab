@@ -26,6 +26,8 @@ public static class MovieMergeExtensions
             Year = csfdMovie.Year,
             Duration = csfdMovie.Duration,
             Rating = csfdMovie.Rating,
+            ImdbRating = csfdMovie.ImdbRating,
+            ImdbRatingCount = csfdMovie.ImdbRatingCount,
             Description = !string.IsNullOrWhiteSpace(csfdMovie.Description)
                 ? csfdMovie.Description
                 : tmdbMovie?.Overview,
@@ -51,6 +53,7 @@ public static class MovieMergeExtensions
             Popularity = tmdbMovie?.Popularity,
             OriginalLanguage = tmdbMovie?.OriginalLanguage,
             Adult = tmdbMovie?.Adult,
+            Homepage = tmdbMovie?.Homepage,
             
             // Localization from CSFD
             LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>(),

@@ -9,6 +9,8 @@ public class CsfdMovie
     public string? ImdbUrl => string.IsNullOrEmpty(ImdbId) ? null : $"https://www.imdb.com/title/{ImdbId}/";
     public Dictionary<string, string> LocalizedTitles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string? Rating { get; set; }
+    public double? ImdbRating { get; set; }
+    public int? ImdbRatingCount { get; set; }
     public List<string> Genres { get; set; } = new();
     public string? Origin { get; set; }
     public List<string> Origins { get; set; } = new();

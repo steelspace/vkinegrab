@@ -24,12 +24,17 @@ public class Movie
     public string? CsfdPosterUrl { get; set; }
     public string? BackdropUrl { get; set; }
     
+    // IMDb specific
+    public double? ImdbRating { get; set; }
+    public int? ImdbRatingCount { get; set; }
+    
     // TMDB specific
     public double? VoteAverage { get; set; }
     public int? VoteCount { get; set; }
     public double? Popularity { get; set; }
     public string? OriginalLanguage { get; set; }
     public bool? Adult { get; set; }
+    public string? Homepage { get; set; }
     
     // Localization
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();

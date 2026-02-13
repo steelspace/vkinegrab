@@ -143,7 +143,11 @@ public class CsfdScraper : ICsfdScraper
             }
         }
 
-        movie.ImdbId = await imdbResolver.ResolveImdbId(doc, movie);
+        // Resolve IMDb ID and rating in a single pass (no duplicate HTTP requests)
+        var (imdbId, imdbRating, imdbRatingCount) = await imdbResolver.ResolveImdb(doc, movie);
+        movie.ImdbId = imdbId;
+        movie.ImdbRating = imdbRating;
+        movie.ImdbRatingCount = imdbRatingCount;
 
         return movie;
     }

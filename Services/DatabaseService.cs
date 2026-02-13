@@ -109,11 +109,14 @@ public class DatabaseService : IDatabaseService
             PosterUrl = movie.PosterUrl,
             CsfdPosterUrl = movie.CsfdPosterUrl,
             BackdropUrl = movie.BackdropUrl,
+            ImdbRating = movie.ImdbRating,
+            ImdbRatingCount = movie.ImdbRatingCount,
             VoteAverage = movie.VoteAverage,
             VoteCount = movie.VoteCount,
             Popularity = movie.Popularity,
             OriginalLanguage = movie.OriginalLanguage,
             Adult = movie.Adult,
+            Homepage = movie.Homepage,
             LocalizedTitles = movie.LocalizedTitles,
             ReleaseDate = movie.ReleaseDate,
             StoredAt = movie.StoredAt ?? DateTime.UtcNow
@@ -140,11 +143,14 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.PosterUrl, storedMovie.PosterUrl)
                 .Set(m => m.CsfdPosterUrl, storedMovie.CsfdPosterUrl)
                 .Set(m => m.BackdropUrl, storedMovie.BackdropUrl)
+                .Set(m => m.ImdbRating, storedMovie.ImdbRating)
+                .Set(m => m.ImdbRatingCount, storedMovie.ImdbRatingCount)
                 .Set(m => m.VoteAverage, storedMovie.VoteAverage)
                 .Set(m => m.VoteCount, storedMovie.VoteCount)
                 .Set(m => m.Popularity, storedMovie.Popularity)
                 .Set(m => m.OriginalLanguage, storedMovie.OriginalLanguage)
                 .Set(m => m.Adult, storedMovie.Adult)
+                .Set(m => m.Homepage, storedMovie.Homepage)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
                 .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);
@@ -217,6 +223,21 @@ public class DatabaseService : IDatabaseService
         catch (MongoException ex)
         {
             throw new InvalidOperationException("Failed to clear schedules", ex);
+        }
+    }
+
+    /// <summary>
+    /// Clears all stored movies from the database.
+    /// </summary>
+    public async Task ClearMoviesAsync()
+    {
+        try
+        {
+            await moviesCollection.DeleteManyAsync(Builders<MovieDto>.Filter.Empty);
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to clear movies", ex);
         }
     }
 

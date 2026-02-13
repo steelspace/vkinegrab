@@ -288,6 +288,11 @@ internal sealed class TmdbResolver
             tmdbMovie.Adult = adultElement.GetBoolean();
         }
 
+        if (result.TryGetProperty("homepage", out var homepageElement))
+        {
+            tmdbMovie.Homepage = homepageElement.GetString();
+        }
+
         return tmdbMovie;
     }
 

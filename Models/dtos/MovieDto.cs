@@ -59,6 +59,12 @@ internal class MovieDto
     [BsonElement("backdrop_url")]
     public string? BackdropUrl { get; set; }
 
+    [BsonElement("imdb_rating")]
+    public double? ImdbRating { get; set; }
+
+    [BsonElement("imdb_rating_count")]
+    public int? ImdbRatingCount { get; set; }
+
     [BsonElement("vote_average")]
     public double? VoteAverage { get; set; }
 
@@ -73,6 +79,9 @@ internal class MovieDto
 
     [BsonElement("adult")]
     public bool? Adult { get; set; }
+
+    [BsonElement("homepage")]
+    public string? Homepage { get; set; }
 
     [BsonElement("localized_titles")]
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
@@ -104,11 +113,14 @@ internal class MovieDto
             PosterUrl = PosterUrl,
             CsfdPosterUrl = CsfdPosterUrl,
             BackdropUrl = BackdropUrl,
+            ImdbRating = ImdbRating,
+            ImdbRatingCount = ImdbRatingCount,
             VoteAverage = VoteAverage,
             VoteCount = VoteCount,
             Popularity = Popularity,
             OriginalLanguage = OriginalLanguage,
             Adult = Adult,
+            Homepage = Homepage,
             LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
             ReleaseDate = ReleaseDate,
             StoredAt = StoredAt

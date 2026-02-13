@@ -50,6 +50,12 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
 
             if ((merged.OriginCountries == null || merged.OriginCountries.Count == 0) && existing.OriginCountries?.Count > 0)
                 merged.OriginCountries = new List<string>(existing.OriginCountries);
+
+            if (!merged.ImdbRating.HasValue && existing.ImdbRating.HasValue)
+            {
+                merged.ImdbRating = existing.ImdbRating;
+                merged.ImdbRatingCount = existing.ImdbRatingCount;
+            }
         }
 
         return merged;

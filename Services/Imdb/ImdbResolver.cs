@@ -18,7 +18,11 @@ internal sealed class ImdbResolver
         validator = new ImdbMetadataValidator(client, titleMatcher);
     }
 
-    public async Task<string?> ResolveImdbId(HtmlDocument csfdDoc, CsfdMovie movie)
+    /// <summary>
+    /// Resolves the IMDb ID and rating for a movie.
+    /// Returns (imdbId, rating, ratingCount).
+    /// </summary>
+    public async Task<(string? ImdbId, double? Rating, int? RatingCount)> ResolveImdb(HtmlDocument csfdDoc, CsfdMovie movie)
     {
         var directLink = csfdDoc.DocumentNode.SelectSingleNode("//a[contains(@href, 'imdb.com/title/tt')]");
         if (directLink != null)
@@ -28,32 +32,42 @@ internal sealed class ImdbResolver
             if (match.Success)
             {
                 var imdbId = match.Value;
-                if (await validator.Validate(imdbId, movie))
+                var (valid, metadata) = await validator.ValidateAndGetMetadata(imdbId, movie);
+                if (valid)
                 {
-                    return imdbId;
+                    return (imdbId, metadata?.Rating, metadata?.RatingCount);
                 }
             }
         }
 
         foreach (var candidateTitle in titleMatcher.GetSearchTitles(movie))
         {
-            var imdbId = await SearchImdbForTitle(candidateTitle, movie);
+            var (imdbId, rating, ratingCount) = await SearchImdbForTitle(candidateTitle, movie);
             if (!string.IsNullOrEmpty(imdbId))
             {
-                return imdbId;
+                return (imdbId, rating, ratingCount);
             }
         }
 
-        return null;
+        return (null, null, null);
     }
 
-    private async Task<string?> SearchImdbForTitle(string title, CsfdMovie movie)
+    /// <summary>
+    /// Legacy method for backward compatibility.
+    /// </summary>
+    public async Task<string?> ResolveImdbId(HtmlDocument csfdDoc, CsfdMovie movie)
+    {
+        var (imdbId, _, _) = await ResolveImdb(csfdDoc, movie);
+        return imdbId;
+    }
+
+    private async Task<(string? ImdbId, double? Rating, int? RatingCount)> SearchImdbForTitle(string title, CsfdMovie movie)
     {
         Console.WriteLine($"  Searching IMDb for: '{title}'");
         return await TryImdbSearch(title, movie, null);
     }
 
-    private async Task<string?> TryImdbSearch(string query, CsfdMovie movie, string? titleType)
+    private async Task<(string? ImdbId, double? Rating, int? RatingCount)> TryImdbSearch(string query, CsfdMovie movie, string? titleType)
     {
         var results = await searchService.Search(query, titleType);
         Console.WriteLine($"    Found {results.Count} results");
@@ -64,7 +78,7 @@ internal sealed class ImdbResolver
         
         if (results.Count == 0)
         {
-            return null;
+            return (null, null, null);
         }
 
         // Extract title from query (remove year if present)
@@ -96,21 +110,23 @@ internal sealed class ImdbResolver
 
         foreach (var candidate in prioritized)
         {
-            if (await validator.Validate(candidate.Id, movie))
+            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie);
+            if (valid)
             {
-                return candidate.Id;
+                return (candidate.Id, metadata?.Rating, metadata?.RatingCount);
             }
         }
 
         foreach (var candidate in secondary)
         {
-            if (await validator.Validate(candidate.Id, movie))
+            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie);
+            if (valid)
             {
-                return candidate.Id;
+                return (candidate.Id, metadata?.Rating, metadata?.RatingCount);
             }
         }
 
-        return null;
+        return (null, null, null);
     }
 }
 

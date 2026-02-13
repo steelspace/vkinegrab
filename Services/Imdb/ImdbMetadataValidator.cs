@@ -20,19 +20,27 @@ internal sealed class ImdbMetadataValidator
 
     public async Task<bool> Validate(string imdbId, CsfdMovie movie)
     {
+        var (valid, _) = await ValidateAndGetMetadata(imdbId, movie);
+        return valid;
+    }
+
+    public async Task<(bool IsValid, ImdbTitleMetadata? Metadata)> ValidateAndGetMetadata(string imdbId, CsfdMovie movie)
+    {
         var hasYear = !string.IsNullOrWhiteSpace(movie.Year);
         var hasDirectors = movie.Directors != null && movie.Directors.Count > 0;
 
+        // Always fetch metadata so we get the rating, even if there's nothing to validate
+        var metadata = await FetchTitleMetadata(imdbId);
+
         if (!hasYear && !hasDirectors)
         {
-            return true;
+            return (true, metadata);
         }
 
-        var metadata = await FetchTitleMetadata(imdbId);
         if (metadata == null)
         {
             Console.WriteLine($"      Validation: No metadata found for {imdbId}, accepting by default");
-            return true;
+            return (true, null);
         }
 
         var yearValid = IsYearValid(movie.Year, metadata.Year);
@@ -42,21 +50,20 @@ internal sealed class ImdbMetadataValidator
 
         if (hasYear && hasDirectors)
         {
-            // If directors don't match but year does, accept it (IMDb may not have director info from HTML fallback)
             if (yearValid && !directorsValid && metadata.Directors.Count == 0)
             {
                 Console.WriteLine($"      Accepting match: Year valid but no IMDb director data (likely HTML fallback)");
-                return true;
+                return (true, metadata);
             }
-            return yearValid && directorsValid;
+            return (yearValid && directorsValid, yearValid && directorsValid ? metadata : null);
         }
 
         if (hasYear)
         {
-            return yearValid;
+            return (yearValid, yearValid ? metadata : null);
         }
 
-        return directorsValid;
+        return (directorsValid, directorsValid ? metadata : null);
     }
 
     private bool IsYearValid(string? movieYear, string? imdbYear)
@@ -161,20 +168,34 @@ internal sealed class ImdbMetadataValidator
             return null;
         }
 
+        // Track rating from JSON-LD even if year extraction fails
+        double? ratingFromJsonLd = null;
+        int? ratingCountFromJsonLd = null;
+
         foreach (var scriptNode in scriptNodes)
         {
-            var jsonText = WebUtility.HtmlDecode(scriptNode.InnerText);
-            if (string.IsNullOrWhiteSpace(jsonText))
+            // Parse raw JSON first (HtmlDecode can corrupt JSON when text fields contain special chars)
+            var rawJson = scriptNode.InnerText;
+            if (string.IsNullOrWhiteSpace(rawJson))
             {
                 continue;
             }
 
             try
             {
-                using var jsonDoc = JsonDocument.Parse(jsonText);
+                using var jsonDoc = JsonDocument.Parse(rawJson);
                 if (TryCreateMetadata(jsonDoc.RootElement, out var metadata))
                 {
                     return metadata;
+                }
+
+                // Even if year is missing (TryCreateMetadata returned false),
+                // we may have extracted rating from the JSON-LD. Capture it for
+                // the HTML title fallback below.
+                if (TryExtractRatingOnly(jsonDoc.RootElement, out var fallbackRating, out var fallbackCount))
+                {
+                    ratingFromJsonLd = fallbackRating;
+                    ratingCountFromJsonLd = fallbackCount;
                 }
             }
             catch (JsonException)
@@ -195,8 +216,8 @@ internal sealed class ImdbMetadataValidator
             {
                 var year = yearMatch.Groups[1].Value;
                 Console.WriteLine($"  DEBUG: Extracted year from title: {year}");
-                // Note: Directors list will be empty, but year validation will work
-                return new ImdbTitleMetadata(year, new List<string>());
+                // Preserve any rating we found in JSON-LD even though year had to come from HTML
+                return new ImdbTitleMetadata(year, new List<string>(), ratingFromJsonLd, ratingCountFromJsonLd);
             }
         }
 
@@ -225,6 +246,7 @@ internal sealed class ImdbMetadataValidator
                 {
                     var year = ExtractYearFromElement(element);
                     var directors = ExtractDirectorsFromElement(element);
+                    var (rating, ratingCount) = ExtractRatingFromElement(element);
 
                     // If JSON-LD doesn't have year, return false so HTML fallback can be used
                     if (year == null)
@@ -233,13 +255,83 @@ internal sealed class ImdbMetadataValidator
                         return false;
                     }
                     
-                    metadata = new ImdbTitleMetadata(year, directors);
+                    metadata = new ImdbTitleMetadata(year, directors, rating, ratingCount);
                     return true;
                 }
             }
         }
 
         metadata = default!;
+        return false;
+    }
+
+    private static (double? Rating, int? RatingCount) ExtractRatingFromElement(JsonElement element)
+    {
+        if (!element.TryGetProperty("aggregateRating", out var aggregateRating) || aggregateRating.ValueKind != JsonValueKind.Object)
+        {
+            return (null, null);
+        }
+
+        double? ratingValue = null;
+        int? ratingCount = null;
+
+        if (aggregateRating.TryGetProperty("ratingValue", out var ratingElement))
+        {
+            if (ratingElement.ValueKind == JsonValueKind.Number)
+            {
+                ratingValue = ratingElement.GetDouble();
+            }
+            else if (ratingElement.ValueKind == JsonValueKind.String && double.TryParse(ratingElement.GetString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                ratingValue = parsed;
+            }
+        }
+
+        if (aggregateRating.TryGetProperty("ratingCount", out var countElement))
+        {
+            if (countElement.ValueKind == JsonValueKind.Number)
+            {
+                ratingCount = countElement.GetInt32();
+            }
+            else if (countElement.ValueKind == JsonValueKind.String && int.TryParse(countElement.GetString(), out var parsedCount))
+            {
+                ratingCount = parsedCount;
+            }
+        }
+
+        return (ratingValue, ratingCount);
+    }
+
+    private static bool TryExtractRatingOnly(JsonElement element, out double? rating, out int? ratingCount)
+    {
+        rating = null;
+        ratingCount = null;
+
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        // Handle @graph arrays
+        if (element.TryGetProperty("@graph", out var graphElement) && graphElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var node in graphElement.EnumerateArray())
+            {
+                if (TryExtractRatingOnly(node, out rating, out ratingCount))
+                {
+                    return true;
+                }
+            }
+        }
+
+        var (r, c) = ExtractRatingFromElement(element);
+        if (r.HasValue)
+        {
+            rating = r;
+            ratingCount = c;
+            return true;
+        }
+
         return false;
     }
 

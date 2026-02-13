@@ -80,6 +80,7 @@ public class TestScraper
             result.HasGenres = movie.Genres != null && movie.Genres.Any();
             result.HasDirectors = movie.Directors != null && movie.Directors.Any();
             result.HasCast = movie.Cast != null && movie.Cast.Any();
+            result.HasRating = !string.IsNullOrWhiteSpace(movie.Rating);
             result.HasDescription = !string.IsNullOrWhiteSpace(movie.Description);
             result.HasPoster = !string.IsNullOrWhiteSpace(movie.PosterUrl);
             result.HasLocalizedTitles = movie.LocalizedTitles != null && movie.LocalizedTitles.Any();
@@ -98,11 +99,13 @@ public class TestScraper
 
             result.Success = true;
             result.CsfdTitle = movie.Title;
+            result.CsfdRating = movie.Rating;
             result.ImdbId = movie.ImdbId;
             result.TmdbId = tmdbMovie?.Id;
 
             // Print summary
             Console.WriteLine($"CSFD Title: {result.CsfdTitle ?? "MISSING"}");
+            Console.WriteLine($"CSFD Rating: {result.CsfdRating ?? "MISSING"}");
             Console.WriteLine($"IMDb ID: {result.ImdbId ?? "MISSING"}");
             Console.WriteLine($"TMDB ID: {result.TmdbId?.ToString() ?? "MISSING"}");
             Console.WriteLine($"Status: {(result.IsComplete ? "✓ COMPLETE" : "⚠ INCOMPLETE")}");
@@ -147,6 +150,7 @@ public class TestScraper
         Console.WriteLine($"CSFD Genres: {results.Count(r => r.HasGenres)}/{results.Count}");
         Console.WriteLine($"CSFD Directors: {results.Count(r => r.HasDirectors)}/{results.Count}");
         Console.WriteLine($"CSFD Cast: {results.Count(r => r.HasCast)}/{results.Count}");
+        Console.WriteLine($"CSFD Rating: {results.Count(r => r.HasRating)}/{results.Count}");
         Console.WriteLine($"CSFD Description: {results.Count(r => r.HasDescription)}/{results.Count}");
         Console.WriteLine($"IMDb ID: {results.Count(r => r.HasImdbId)}/{results.Count}");
         Console.WriteLine($"TMDB ID: {results.Count(r => r.HasTmdbId)}/{results.Count}");
@@ -172,6 +176,7 @@ public class TestScraper
                 if (!incomplete.HasGenres) Console.WriteLine("    - Missing Genres");
                 if (!incomplete.HasDirectors) Console.WriteLine("    - Missing Directors");
                 if (!incomplete.HasCast) Console.WriteLine("    - Missing Cast");
+                if (!incomplete.HasRating) Console.WriteLine("    - Missing CSFD Rating");
                 if (!incomplete.HasDescription) Console.WriteLine("    - Missing Description");
                 if (!incomplete.HasImdbId) Console.WriteLine("    - Missing IMDb ID");
                 if (!incomplete.HasTmdbId) Console.WriteLine("    - Missing TMDB ID");
@@ -340,6 +345,7 @@ public class TestResult
     public bool HasGenres { get; set; }
     public bool HasDirectors { get; set; }
     public bool HasCast { get; set; }
+    public bool HasRating { get; set; }
     public bool HasDescription { get; set; }
     public bool HasPoster { get; set; }
     public bool HasLocalizedTitles { get; set; }
@@ -355,6 +361,7 @@ public class TestResult
     
     // Actual values for reporting
     public string? CsfdTitle { get; set; }
+    public string? CsfdRating { get; set; }
     public string? ImdbId { get; set; }
     public int? TmdbId { get; set; }
     

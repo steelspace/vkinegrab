@@ -76,7 +76,9 @@ public class CsfdScraper : ICsfdScraper
         // 3. Rating
         // The class is often 'film-rating-average' or just 'rating-average' depending on A/B tests or page type
         var ratingNode = mainNode.SelectSingleNode("//div[contains(@class, 'film-rating-average')]");
-        movie.Rating = Clean(ratingNode?.InnerText);
+        var ratingText = Clean(ratingNode?.InnerText);
+        // CSFD shows "? %" for unrated movies — treat as no rating
+        movie.Rating = !string.IsNullOrWhiteSpace(ratingText) && ratingText != "? %" ? ratingText : null;
 
         // 4. Genres - Located in the film header info area
         var genreNodes = mainNode.SelectNodes("//div[contains(@class, 'genres')]//a");

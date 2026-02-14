@@ -1,3 +1,4 @@
+ALWAYS check ./.github/agents folder for agents definitions, list them when starting
 IMPORTANT: ALWAYS can create temporary files but only in folder specified in TMP environment variable and ensure they are removed after execution
 Leverage sub agents whenever possible.
 Print out when using a sub-agent for a sub task.

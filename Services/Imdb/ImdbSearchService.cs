@@ -86,8 +86,9 @@ internal sealed class ImdbSearchService
             var titleText = WebUtility.HtmlDecode(linkNode.InnerText)?.Trim() ?? string.Empty;
             var yearMatch = Regex.Match(rawText, @"\((\d{4})\)");
             var year = yearMatch.Success ? yearMatch.Groups[1].Value : null;
+            var titleType = ExtractTitleTypeFromRawText(rawText);
 
-            yield return new ImdbSearchResult(match.Value, titleText, year, rawText);
+            yield return new ImdbSearchResult(match.Value, titleText, year, rawText, titleType);
         }
     }
 
@@ -141,6 +142,7 @@ internal sealed class ImdbSearchService
             }
             
             string? year = null;
+            string? titleType = null;
             var rawBuilder = new StringBuilder();
 
             var metaSpans = item.SelectNodes(".//span[contains(@class, 'cli-title-metadata-item')]");
@@ -161,7 +163,38 @@ internal sealed class ImdbSearchService
                 }
             }
 
-            yield return new ImdbSearchResult(match.Value, titleText, year, rawBuilder.ToString());
+            // Extract title type label (e.g., "TV Series", "Podcast Series", "TV Episode", "Video Game")
+            // These appear in a separate label element within the search result item
+            var typeLabel = item.SelectSingleNode(".//span[contains(@class, 'ipc-metadata-list-summary-item__tl')]")
+                ?? item.SelectSingleNode(".//label[contains(@class, 'ipc-metadata-list-summary-item__tl')]");
+            if (typeLabel != null)
+            {
+                titleType = WebUtility.HtmlDecode(typeLabel.InnerText)?.Trim();
+            }
+
+            // Also check the raw text for type indicators
+            if (string.IsNullOrWhiteSpace(titleType))
+            {
+                var rawText = rawBuilder.ToString();
+                titleType = ExtractTitleTypeFromRawText(rawText);
+            }
+
+            yield return new ImdbSearchResult(match.Value, titleText, year, rawBuilder.ToString(), titleType);
         }
+    }
+
+    /// <summary>
+    /// Extracts a title type indicator from raw search result text.
+    /// IMDB search results often contain labels like "(TV Series)", "(Podcast Series)", "(Video Game)", etc.
+    /// </summary>
+    private static string? ExtractTitleTypeFromRawText(string rawText)
+    {
+        if (string.IsNullOrWhiteSpace(rawText))
+        {
+            return null;
+        }
+
+        var typeMatch = Regex.Match(rawText, @"\b(TV Series|TV Mini Series|TV Movie|TV Episode|TV Special|TV Short|Podcast Series|Podcast Episode|Video Game|Video|Short|Music Video)\b", RegexOptions.IgnoreCase);
+        return typeMatch.Success ? typeMatch.Groups[1].Value : null;
     }
 }

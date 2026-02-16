@@ -73,12 +73,19 @@ internal sealed class ImdbResolver
         Console.WriteLine($"    Found {results.Count} results");
         foreach (var r in results.Take(3))
         {
-            Console.WriteLine($"      - {r.Id}: '{r.Title}' ({r.Year}) RawText: '{r.RawText}'");
+            Console.WriteLine($"      - {r.Id}: '{r.Title}' ({r.Year}) Type: '{r.TitleType}' RawText: '{r.RawText}'");
         }
         
         if (results.Count == 0)
         {
             return (null, null, null);
+        }
+
+        // Pre-filter: skip results that are clearly not movies (podcasts, TV series, video games, etc.)
+        var filteredResults = results.Where(r => ImdbMetadataValidator.IsTitleTypeAcceptable(r.TitleType)).ToList();
+        if (filteredResults.Count < results.Count)
+        {
+            Console.WriteLine($"    Filtered out {results.Count - filteredResults.Count} non-movie results (podcasts, TV series, etc.)");
         }
 
         // Extract title from query (remove year if present)
@@ -90,7 +97,7 @@ internal sealed class ImdbResolver
         var prioritized = new List<ImdbSearchResult>();
         var secondary = new List<ImdbSearchResult>();
 
-        foreach (var result in results)
+        foreach (var result in filteredResults)
         {
             var normalizedTitle = titleMatcher.NormalizeTitle(result.Title);
             var titleMatches = normalizedTargets.Count > 0 && normalizedTargets.Contains(normalizedTitle);

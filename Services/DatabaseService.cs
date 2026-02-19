@@ -296,6 +296,27 @@ public class DatabaseService : IDatabaseService
     }
 
     /// <summary>
+    /// Retrieves movies that are missing IMDB data (no ImdbId).
+    /// </summary>
+    public async Task<IReadOnlyList<Movie>> GetMoviesWithMissingImdbAsync()
+    {
+        try
+        {
+            var filter = Builders<MovieDto>.Filter.Or(
+                Builders<MovieDto>.Filter.Eq(m => m.ImdbId, null),
+                Builders<MovieDto>.Filter.Eq(m => m.ImdbId, string.Empty)
+            );
+
+            var dtos = await moviesCollection.Find(filter).ToListAsync();
+            return dtos.Select(d => d.ToMovie()).ToList();
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to retrieve movies with missing IMDB data", ex);
+        }
+    }
+
+    /// <summary>
     /// Retrieves all schedules stored in the database and maps them to domain objects.
     /// </summary>
     public async Task<IReadOnlyList<Schedule>> GetSchedulesAsync()

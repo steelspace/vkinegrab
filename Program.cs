@@ -317,6 +317,54 @@ if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgn
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("retry-imdb", StringComparison.OrdinalIgnoreCase))
+{
+    var metadataOrchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();
+    var moviesWithoutImdb = await databaseService.GetMoviesWithMissingImdbAsync();
+
+    if (moviesWithoutImdb.Count == 0)
+    {
+        Console.WriteLine("All movies already have IMDB data.");
+        return;
+    }
+
+    Console.WriteLine($"Found {moviesWithoutImdb.Count} movies without IMDB data. Retrying resolution...");
+
+    var resolved = 0;
+    var failed = 0;
+    var unchanged = 0;
+
+    foreach (var existing in moviesWithoutImdb)
+    {
+        try
+        {
+            var updated = await metadataOrchestrator.ResolveMovieMetadataAsync(existing.CsfdId, existing);
+
+            if (!string.IsNullOrWhiteSpace(updated.ImdbId))
+            {
+                await databaseService.StoreMovie(updated);
+                Console.WriteLine($"  ✓ {existing.Title} (CSFD {existing.CsfdId}) → {updated.ImdbId}");
+                resolved++;
+            }
+            else
+            {
+                Console.WriteLine($"  - {existing.Title} (CSFD {existing.CsfdId}) — still no IMDB match");
+                unchanged++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {existing.Title} (CSFD {existing.CsfdId}) — error: {ex.Message}");
+            failed++;
+        }
+
+        await Task.Delay(500); // Be nice to the servers
+    }
+
+    Console.WriteLine($"\nDone. Resolved: {resolved}. Unchanged: {unchanged}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("collect-movies", StringComparison.OrdinalIgnoreCase))
 {
     var remainingArgs = args.Skip(1).ToArray();

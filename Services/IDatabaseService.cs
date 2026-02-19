@@ -13,6 +13,7 @@ namespace vkinegrab.Services
         // Retrieval
         Task<IReadOnlyList<Movie>> GetAllMoviesAsync();
         Task<IReadOnlyList<Movie>> GetMoviesWithMissingMetadataAsync();
+        Task<IReadOnlyList<Movie>> GetMoviesWithMissingImdbAsync();
         // Schedules
         Task StoreSchedule(Schedule schedule);
         Task StoreSchedules(IEnumerable<Schedule> schedules);

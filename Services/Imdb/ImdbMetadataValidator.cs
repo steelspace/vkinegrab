@@ -49,7 +49,10 @@ internal sealed class ImdbMetadataValidator
         "MusicVideoObject",
     };
 
-    public async Task<(bool IsValid, ImdbTitleMetadata? Metadata)> ValidateAndGetMetadata(string imdbId, CsfdMovie movie)
+    public Task<(bool IsValid, ImdbTitleMetadata? Metadata)> ValidateAndGetMetadata(string imdbId, CsfdMovie movie)
+        => ValidateAndGetMetadata(imdbId, movie, searchResultYear: null);
+
+    public async Task<(bool IsValid, ImdbTitleMetadata? Metadata)> ValidateAndGetMetadata(string imdbId, CsfdMovie movie, string? searchResultYear)
     {
         var hasYear = !string.IsNullOrWhiteSpace(movie.Year);
         var hasDirectors = movie.Directors != null && movie.Directors.Count > 0;
@@ -75,10 +78,10 @@ internal sealed class ImdbMetadataValidator
             return (true, null);
         }
 
-        var yearValid = IsYearValid(movie.Year, metadata.Year);
+        var yearValid = IsYearValid(movie.Year, metadata.Year, searchResultYear);
         var directorsValid = AreDirectorsValid(movie.Directors, metadata.Directors);
 
-        Console.WriteLine($"      Validation for {imdbId}: TitleType='{metadata.TitleType}', Year={yearValid} (CSFD:{movie.Year} vs IMDb:{metadata.Year}), Directors={directorsValid}");
+        Console.WriteLine($"      Validation for {imdbId}: TitleType='{metadata.TitleType}', Year={yearValid} (CSFD:{movie.Year} vs IMDb:{metadata.Year}, SearchResult:{searchResultYear}), Directors={directorsValid}");
 
         if (hasYear && hasDirectors)
         {
@@ -120,7 +123,7 @@ internal sealed class ImdbMetadataValidator
         return true;
     }
 
-    private bool IsYearValid(string? movieYear, string? imdbYear)
+    internal bool IsYearValid(string? movieYear, string? imdbYear, string? searchResultYear = null)
     {
         if (string.IsNullOrWhiteSpace(movieYear))
         {
@@ -133,23 +136,43 @@ internal sealed class ImdbMetadataValidator
             return true;
         }
 
-        if (string.IsNullOrEmpty(imdbYear))
+        // Check against the IMDB title page year (JSON-LD datePublished)
+        if (!string.IsNullOrEmpty(imdbYear))
         {
-            return false;
+            if (string.Equals(normalizedMovieYear, imdbYear, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            var normalizedImdbYear = ExtractYearDigits(imdbYear);
+            if (int.TryParse(normalizedMovieYear, out var movieYearValue) && 
+                int.TryParse(normalizedImdbYear, out var imdbYearValue) &&
+                Math.Abs(movieYearValue - imdbYearValue) <= 1)
+            {
+                return true;
+            }
         }
 
-        if (string.Equals(normalizedMovieYear, imdbYear, StringComparison.Ordinal))
+        // Fallback: if the IMDB search result year matches, trust it.
+        // IMDB search results often show the original production year while the title
+        // page's datePublished can reflect a later regional release date.
+        if (!string.IsNullOrWhiteSpace(searchResultYear))
         {
-            return true;
+            var normalizedSearchYear = ExtractYearDigits(searchResultYear);
+            if (string.Equals(normalizedMovieYear, normalizedSearchYear, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (int.TryParse(normalizedMovieYear, out var movieYearVal) &&
+                int.TryParse(normalizedSearchYear, out var searchYearVal) &&
+                Math.Abs(movieYearVal - searchYearVal) <= 1)
+            {
+                return true;
+            }
         }
 
-        var normalizedImdbYear = ExtractYearDigits(imdbYear);
-        if (int.TryParse(normalizedMovieYear, out var movieYearValue) && 
-            int.TryParse(normalizedImdbYear, out var imdbYearValue))
-        {
-            return Math.Abs(movieYearValue - imdbYearValue) <= 1;
-        }
-
+        // If imdbYear is null/empty and no search result year matched, fail
         return false;
     }
 
@@ -164,7 +187,7 @@ internal sealed class ImdbMetadataValidator
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    private bool AreDirectorsValid(IReadOnlyCollection<string>? movieDirectors, IReadOnlyList<string> imdbDirectors)
+    internal bool AreDirectorsValid(IReadOnlyCollection<string>? movieDirectors, IReadOnlyList<string> imdbDirectors)
     {
         if (movieDirectors == null || movieDirectors.Count == 0)
         {
@@ -176,7 +199,10 @@ internal sealed class ImdbMetadataValidator
             return false;
         }
 
-        var normalizedImdb = new HashSet<string>(imdbDirectors.Select(matcher.NormalizePersonName).Where(n => !string.IsNullOrEmpty(n)), StringComparer.Ordinal);
+        var normalizedImdb = new HashSet<string>(
+            imdbDirectors.Select(d => NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(d)))
+                         .Where(n => !string.IsNullOrEmpty(n)),
+            StringComparer.Ordinal);
         if (normalizedImdb.Count == 0)
         {
             return false;
@@ -184,7 +210,7 @@ internal sealed class ImdbMetadataValidator
 
         foreach (var director in movieDirectors)
         {
-            var normalizedDirector = matcher.NormalizePersonName(director);
+            var normalizedDirector = NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(director));
             if (string.IsNullOrEmpty(normalizedDirector))
             {
                 continue;
@@ -197,6 +223,22 @@ internal sealed class ImdbMetadataValidator
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Makes a normalized name order-independent by sorting its words alphabetically.
+    /// This handles different naming conventions (e.g., "Kar-wai Wong" vs "Wong Kar-wai").
+    /// </summary>
+    private static string NormalizePersonNameOrderIndependent(string normalizedName)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return normalizedName;
+        }
+
+        var words = normalizedName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Array.Sort(words, StringComparer.Ordinal);
+        return string.Join(' ', words);
     }
 
     private async Task<ImdbTitleMetadata?> FetchTitleMetadata(string imdbId)

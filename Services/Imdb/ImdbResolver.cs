@@ -117,7 +117,7 @@ internal sealed class ImdbResolver
 
         foreach (var candidate in prioritized)
         {
-            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie);
+            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie, candidate.Year);
             if (valid)
             {
                 return (candidate.Id, metadata?.Rating, metadata?.RatingCount);
@@ -126,7 +126,7 @@ internal sealed class ImdbResolver
 
         foreach (var candidate in secondary)
         {
-            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie);
+            var (valid, metadata) = await validator.ValidateAndGetMetadata(candidate.Id, movie, candidate.Year);
             if (valid)
             {
                 return (candidate.Id, metadata?.Rating, metadata?.RatingCount);

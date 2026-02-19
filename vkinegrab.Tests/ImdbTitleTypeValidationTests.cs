@@ -1,3 +1,4 @@
+using vkinegrab.Models;
 using vkinegrab.Services.Imdb;
 
 namespace vkinegrab.Tests;
@@ -52,5 +53,140 @@ public class ImdbTitleTypeValidationTests
         // This is the specific scenario: "Čaroděj z Kremlu" matches a podcast on IMDB.
         // A PodcastSeries result should be rejected by the validator.
         Assert.False(ImdbMetadataValidator.IsTitleTypeAcceptable("PodcastSeries"));
+    }
+
+    #region Year Validation with Search Result Fallback
+
+    [Fact]
+    public void IsYearValid_ExactMatch_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.IsYearValid("1995", "1995"));
+    }
+
+    [Fact]
+    public void IsYearValid_OneYearTolerance_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.IsYearValid("1995", "1996"));
+        Assert.True(validator.IsYearValid("1995", "1994"));
+    }
+
+    [Fact]
+    public void IsYearValid_ThreeYearGap_WithoutSearchResult_ReturnsFalse()
+    {
+        var validator = CreateValidator();
+        Assert.False(validator.IsYearValid("1995", "1998"));
+    }
+
+    [Fact]
+    public void IsYearValid_ThreeYearGap_WithMatchingSearchResultYear_ReturnsTrue()
+    {
+        // This is the Fallen Angels scenario: CSFD=1995, IMDB datePublished=1998, search result=1995
+        var validator = CreateValidator();
+        Assert.True(validator.IsYearValid("1995", "1998", searchResultYear: "1995"));
+    }
+
+    [Fact]
+    public void IsYearValid_NullImdbYear_WithMatchingSearchResultYear_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.IsYearValid("1995", null, searchResultYear: "1995"));
+    }
+
+    [Fact]
+    public void IsYearValid_NullImdbYear_NullSearchResult_ReturnsFalse()
+    {
+        var validator = CreateValidator();
+        Assert.False(validator.IsYearValid("1995", null, searchResultYear: null));
+    }
+
+    [Fact]
+    public void IsYearValid_NullMovieYear_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.IsYearValid(null, "1998"));
+        Assert.True(validator.IsYearValid(null, "1998", searchResultYear: "1995"));
+    }
+
+    #endregion
+
+    #region Director Name Order-Independent Matching
+
+    [Fact]
+    public void AreDirectorsValid_SameNameDifferentOrder_ReturnsTrue()
+    {
+        // "Kar-wai Wong" (Western order) vs "Wong Kar-wai" (Eastern order)
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Kar-wai Wong" };
+        var imdbDirectors = new List<string> { "Wong Kar-wai" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_SameNameSameOrder_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Christopher Nolan" };
+        var imdbDirectors = new List<string> { "Christopher Nolan" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_DifferentPeople_ReturnsFalse()
+    {
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Kar-wai Wong" };
+        var imdbDirectors = new List<string> { "Martin Scorsese" };
+        Assert.False(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_NullMovieDirectors_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.AreDirectorsValid(null, new List<string> { "Some Director" }));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_EmptyMovieDirectors_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        Assert.True(validator.AreDirectorsValid(new List<string>(), new List<string> { "Some Director" }));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_EmptyImdbDirectors_ReturnsFalse()
+    {
+        var validator = CreateValidator();
+        Assert.False(validator.AreDirectorsValid(new List<string> { "Some Director" }, new List<string>()));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_MultipleDirectors_DifferentOrder_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Kar-wai Wong", "Yimou Zhang" };
+        var imdbDirectors = new List<string> { "Wong Kar-wai", "Zhang Yimou" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_WithDiacritics_ReturnsTrue()
+    {
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "René Clément" };
+        var imdbDirectors = new List<string> { "René Clément" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    #endregion
+
+    private static ImdbMetadataValidator CreateValidator()
+    {
+        var handler = new HttpClientHandler();
+        var client = new HttpClient(handler);
+        var matcher = new ImdbTitleMatcher();
+        return new ImdbMetadataValidator(client, matcher);
     }
 }

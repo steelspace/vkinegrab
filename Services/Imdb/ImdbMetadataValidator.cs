@@ -199,33 +199,38 @@ internal sealed class ImdbMetadataValidator
             return false;
         }
 
-        var normalizedImdbList = imdbDirectors
-            .Select(d => NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(d)))
+        var normalizedImdbRaw = imdbDirectors
+            .Select(d => matcher.NormalizePersonName(d))
             .Where(n => !string.IsNullOrEmpty(n))
             .ToList();
-        if (normalizedImdbList.Count == 0)
+        if (normalizedImdbRaw.Count == 0)
         {
             return false;
         }
 
-        var normalizedImdbSet = new HashSet<string>(normalizedImdbList, StringComparer.Ordinal);
+        var normalizedImdbSorted = new HashSet<string>(
+            normalizedImdbRaw.Select(NormalizePersonNameOrderIndependent),
+            StringComparer.Ordinal);
 
         foreach (var director in movieDirectors)
         {
-            var normalizedDirector = NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(director));
-            if (string.IsNullOrEmpty(normalizedDirector))
+            var normalizedRaw = matcher.NormalizePersonName(director);
+            if (string.IsNullOrEmpty(normalizedRaw))
             {
                 continue;
             }
 
-            // Strict match first
-            if (normalizedImdbSet.Contains(normalizedDirector))
+            var normalizedSorted = NormalizePersonNameOrderIndependent(normalizedRaw);
+
+            // Strict match first (order-independent via sorted words)
+            if (normalizedImdbSorted.Contains(normalizedSorted))
             {
                 continue;
             }
 
-            // Fuzzy fallback: handle transliteration differences (e.g., Czech "Hajao Mijazaki" vs English "Hayao Miyazaki")
-            if (!normalizedImdbList.Any(imdbName => NameSimilarity(normalizedDirector, imdbName) >= 0.75))
+            // Fuzzy fallback: compare using best word-permutation similarity
+            // to handle transliteration differences (e.g., Czech "Tacuja Jošihara" vs English "Tatsuya Yoshihara")
+            if (!normalizedImdbRaw.Any(imdbName => BestPermutationSimilarity(normalizedRaw, imdbName) >= 0.70))
             {
                 return false;
             }
@@ -269,6 +274,73 @@ internal sealed class ImdbMetadataValidator
 
         var distance = LevenshteinDistance(a, b);
         return 1.0 - ((double)distance / maxLen);
+    }
+
+    /// <summary>
+    /// Computes the best similarity score across all word-order permutations of both names.
+    /// Handles cases where word order differs AND transliteration differs simultaneously
+    /// (e.g., "tacuja josihara" vs "tatsuya yoshihara" — sorted would pair words incorrectly).
+    /// For names with ≤4 words, tries all permutations; beyond that, falls back to sorted comparison.
+    /// </summary>
+    internal static double BestPermutationSimilarity(string a, string b)
+    {
+        var wordsA = a.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var wordsB = b.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // For single-word names or mismatched word counts, just compare directly
+        if (wordsA.Length <= 1 || wordsB.Length <= 1 || wordsA.Length != wordsB.Length)
+        {
+            return NameSimilarity(a, b);
+        }
+
+        // For names with too many words, fall back to sorted comparison
+        if (wordsA.Length > 4)
+        {
+            Array.Sort(wordsA, StringComparer.Ordinal);
+            Array.Sort(wordsB, StringComparer.Ordinal);
+            return NameSimilarity(string.Join(' ', wordsA), string.Join(' ', wordsB));
+        }
+
+        // Try all permutations of wordsA against wordsB to find best match
+        var bestSimilarity = 0.0;
+        foreach (var perm in GetPermutations(wordsA))
+        {
+            var permStr = string.Join(' ', perm);
+            var bStr = string.Join(' ', wordsB);
+            var sim = NameSimilarity(permStr, bStr);
+            if (sim > bestSimilarity)
+            {
+                bestSimilarity = sim;
+            }
+
+            if (bestSimilarity >= 1.0)
+            {
+                break;
+            }
+        }
+
+        return bestSimilarity;
+    }
+
+    private static IEnumerable<string[]> GetPermutations(string[] items)
+    {
+        if (items.Length <= 1)
+        {
+            yield return items;
+            yield break;
+        }
+
+        for (var i = 0; i < items.Length; i++)
+        {
+            var remaining = items.Where((_, idx) => idx != i).ToArray();
+            foreach (var perm in GetPermutations(remaining))
+            {
+                var result = new string[items.Length];
+                result[0] = items[i];
+                Array.Copy(perm, 0, result, 1, perm.Length);
+                yield return result;
+            }
+        }
     }
 
     private static int LevenshteinDistance(string s, string t)

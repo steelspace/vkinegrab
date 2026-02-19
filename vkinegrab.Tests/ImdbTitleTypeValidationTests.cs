@@ -195,6 +195,17 @@ public class ImdbTitleTypeValidationTests
     }
 
     [Fact]
+    public void AreDirectorsValid_CzechVsEnglishTransliteration_DifferentWordOrder_ReturnsTrue()
+    {
+        // "Tacuja Jošihara" (Czech) vs "Tatsuya Yoshihara" (English)
+        // Both transliteration AND word-initial letter changes (j→y, c→ts)
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Tacuja Jošihara" };
+        var imdbDirectors = new List<string> { "Tatsuya Yoshihara" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
     public void AreDirectorsValid_CompletelyDifferentNames_ReturnsFalse()
     {
         // Totally different names should not pass fuzzy matching
@@ -224,6 +235,34 @@ public class ImdbTitleTypeValidationTests
     public void NameSimilarity_EmptyStrings_ReturnsOne()
     {
         Assert.Equal(1.0, ImdbMetadataValidator.NameSimilarity("", ""));
+    }
+
+    [Fact]
+    public void BestPermutationSimilarity_WordOrderAndTransliteration_HighSimilarity()
+    {
+        // "tacuja josihara" vs "tatsuya yoshihara" — sorted would pair words incorrectly
+        // but permutation matching should find "tacuja"↔"tatsuya" and "josihara"↔"yoshihara"
+        var similarity = ImdbMetadataValidator.BestPermutationSimilarity("tacuja josihara", "tatsuya yoshihara");
+        Assert.True(similarity >= 0.70, $"Expected >= 0.70, got {similarity}");
+    }
+
+    [Fact]
+    public void BestPermutationSimilarity_IdenticalNames_ReturnsOne()
+    {
+        Assert.Equal(1.0, ImdbMetadataValidator.BestPermutationSimilarity("hayao miyazaki", "hayao miyazaki"));
+    }
+
+    [Fact]
+    public void BestPermutationSimilarity_ReversedOrder_ReturnsOne()
+    {
+        Assert.Equal(1.0, ImdbMetadataValidator.BestPermutationSimilarity("wong karwai", "karwai wong"));
+    }
+
+    [Fact]
+    public void BestPermutationSimilarity_CompletelyDifferent_LowSimilarity()
+    {
+        var similarity = ImdbMetadataValidator.BestPermutationSimilarity("steven spielberg", "martin scorsese");
+        Assert.True(similarity < 0.75, $"Expected < 0.75, got {similarity}");
     }
 
     #endregion

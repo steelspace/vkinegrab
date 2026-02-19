@@ -117,6 +117,7 @@ public class DatabaseService : IDatabaseService
             OriginalLanguage = movie.OriginalLanguage,
             Adult = movie.Adult,
             Homepage = movie.Homepage,
+            TrailerUrl = movie.TrailerUrl,
             LocalizedTitles = movie.LocalizedTitles,
             ReleaseDate = movie.ReleaseDate,
             StoredAt = movie.StoredAt ?? DateTime.UtcNow
@@ -151,6 +152,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.OriginalLanguage, storedMovie.OriginalLanguage)
                 .Set(m => m.Adult, storedMovie.Adult)
                 .Set(m => m.Homepage, storedMovie.Homepage)
+                .Set(m => m.TrailerUrl, storedMovie.TrailerUrl)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
                 .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);

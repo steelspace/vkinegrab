@@ -26,6 +26,7 @@ internal sealed class TmdbResolver
             var tmdbMovie = await FindByImdbId(movie.ImdbId);
             if (tmdbMovie != null)
             {
+                tmdbMovie.TrailerUrl = await FetchTrailerUrl(tmdbMovie.Id);
                 return tmdbMovie;
             }
         }
@@ -38,6 +39,7 @@ internal sealed class TmdbResolver
             var tmdbMovie = await SearchTmdb(title, movie.Year);
             if (tmdbMovie != null)
             {
+                tmdbMovie.TrailerUrl = await FetchTrailerUrl(tmdbMovie.Id);
                 return tmdbMovie;
             }
         }
@@ -324,7 +326,77 @@ internal sealed class TmdbResolver
         {
             using var doc = JsonDocument.Parse(responseJson);
             var root = doc.RootElement;
-            return ParseTmdbMovie(root);
+            var movie = ParseTmdbMovie(root);
+            if (movie != null)
+            {
+                movie.TrailerUrl = await FetchTrailerUrl(movie.Id);
+            }
+            return movie;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<string?> FetchTrailerUrl(int tmdbId)
+    {
+        var url = $"{ApiBaseUrl}/movie/{tmdbId}/videos?language=en-US";
+        string responseJson;
+        try
+        {
+            responseJson = await client.GetStringAsync(url);
+        }
+        catch
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            // Prefer official YouTube trailers, then teasers, then any YouTube video
+            string? trailerKey = null;
+            string? teaserKey = null;
+            string? anyKey = null;
+
+            foreach (var video in results.EnumerateArray())
+            {
+                var site = video.TryGetProperty("site", out var siteEl) ? siteEl.GetString() : null;
+                if (!string.Equals(site, "YouTube", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var key = video.TryGetProperty("key", out var keyEl) ? keyEl.GetString() : null;
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                var type = video.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+                var official = video.TryGetProperty("official", out var officialEl) && officialEl.ValueKind == JsonValueKind.True;
+
+                if (string.Equals(type, "Trailer", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (official || trailerKey == null)
+                        trailerKey = key;
+                }
+                else if (string.Equals(type, "Teaser", StringComparison.OrdinalIgnoreCase))
+                {
+                    teaserKey ??= key;
+                }
+                else
+                {
+                    anyKey ??= key;
+                }
+            }
+
+            var bestKey = trailerKey ?? teaserKey ?? anyKey;
+            return bestKey != null ? $"https://www.youtube.com/watch?v={bestKey}" : null;
         }
         catch (JsonException)
         {

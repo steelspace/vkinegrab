@@ -667,6 +667,7 @@ try
         Console.WriteLine($"  ADULT: {movie.Adult}");
         Console.WriteLine($"  POSTER: {movie.PosterUrl ?? "N/A"}");
         Console.WriteLine($"  BACKDROP: {movie.BackdropUrl ?? "N/A"}");
+        Console.WriteLine($"  TRAILER: {movie.TrailerUrl ?? "N/A"}");
         if (!string.IsNullOrWhiteSpace(movie.Description))
         {
             Console.WriteLine($"  OVERVIEW: {movie.Description}");

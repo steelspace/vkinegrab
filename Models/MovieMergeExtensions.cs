@@ -54,6 +54,7 @@ public static class MovieMergeExtensions
             OriginalLanguage = tmdbMovie?.OriginalLanguage,
             Adult = tmdbMovie?.Adult,
             Homepage = tmdbMovie?.Homepage,
+            TrailerUrl = tmdbMovie?.TrailerUrl,
             
             // Localization from CSFD
             LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>(),

@@ -56,6 +56,9 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
                 merged.ImdbRating = existing.ImdbRating;
                 merged.ImdbRatingCount = existing.ImdbRatingCount;
             }
+
+            if (string.IsNullOrWhiteSpace(merged.TrailerUrl) && !string.IsNullOrWhiteSpace(existing.TrailerUrl))
+                merged.TrailerUrl = existing.TrailerUrl;
         }
 
         return merged;

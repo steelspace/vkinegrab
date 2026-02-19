@@ -83,6 +83,9 @@ internal class MovieDto
     [BsonElement("homepage")]
     public string? Homepage { get; set; }
 
+    [BsonElement("trailer_url")]
+    public string? TrailerUrl { get; set; }
+
     [BsonElement("localized_titles")]
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
 
@@ -121,6 +124,7 @@ internal class MovieDto
             OriginalLanguage = OriginalLanguage,
             Adult = Adult,
             Homepage = Homepage,
+            TrailerUrl = TrailerUrl,
             LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
             ReleaseDate = ReleaseDate,
             StoredAt = StoredAt

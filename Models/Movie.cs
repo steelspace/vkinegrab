@@ -35,6 +35,7 @@ public class Movie
     public string? OriginalLanguage { get; set; }
     public bool? Adult { get; set; }
     public string? Homepage { get; set; }
+    public string? TrailerUrl { get; set; }
     
     // Localization
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();

@@ -16,6 +16,7 @@ public class TmdbMovie
     public string? OriginalLanguage { get; set; }
     public bool? Adult { get; set; }
     public string? Homepage { get; set; }
+    public string? TrailerUrl { get; set; }
     public string Url => $"https://www.themoviedb.org/movie/{Id}";
     public string? FullPosterUrl => !string.IsNullOrEmpty(PosterPath) ? $"https://image.tmdb.org/t/p/original{PosterPath}" : null;
     public string? FullBackdropUrl => !string.IsNullOrEmpty(BackdropPath) ? $"https://image.tmdb.org/t/p/original{BackdropPath}" : null;

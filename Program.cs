@@ -317,6 +317,60 @@ if (args.Length > 0 && args[0].Equals("grab-venues", StringComparison.OrdinalIgn
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("update-trailers", StringComparison.OrdinalIgnoreCase))
+{
+    var csfdScraperForTrailers = serviceProvider.GetRequiredService<ICsfdScraper>();
+    var allMovies = await databaseService.GetAllMoviesAsync();
+    var moviesWithTmdb = allMovies.Where(m => m.TmdbId.HasValue).ToList();
+
+    if (moviesWithTmdb.Count == 0)
+    {
+        Console.WriteLine("No movies with TMDB data found.");
+        return;
+    }
+
+    Console.WriteLine($"Found {moviesWithTmdb.Count} movies with TMDB IDs. Fetching trailer URLs...");
+
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    foreach (var movie in moviesWithTmdb)
+    {
+        try
+        {
+            var trailerUrl = await csfdScraperForTrailers.FetchTrailerUrl(movie.TmdbId!.Value);
+
+            if (!string.IsNullOrWhiteSpace(trailerUrl) && trailerUrl != movie.TrailerUrl)
+            {
+                movie.TrailerUrl = trailerUrl;
+                await databaseService.StoreMovie(movie);
+                Console.WriteLine($"  ✓ {movie.Title} (TMDB {movie.TmdbId}) → {trailerUrl}");
+                updated++;
+            }
+            else if (!string.IsNullOrWhiteSpace(movie.TrailerUrl))
+            {
+                skipped++;
+            }
+            else
+            {
+                Console.WriteLine($"  - {movie.Title} (TMDB {movie.TmdbId}) — no trailer found");
+                skipped++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {movie.Title} (TMDB {movie.TmdbId}) — error: {ex.Message}");
+            failed++;
+        }
+
+        await Task.Delay(250); // Rate limit
+    }
+
+    Console.WriteLine($"\nDone. Updated: {updated}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("retry-imdb", StringComparison.OrdinalIgnoreCase))
 {
     var metadataOrchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();

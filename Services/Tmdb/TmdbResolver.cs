@@ -339,7 +339,7 @@ internal sealed class TmdbResolver
         }
     }
 
-    private async Task<string?> FetchTrailerUrl(int tmdbId)
+    public async Task<string?> FetchTrailerUrl(int tmdbId)
     {
         var url = $"{ApiBaseUrl}/movie/{tmdbId}/videos?language=en-US";
         string responseJson;

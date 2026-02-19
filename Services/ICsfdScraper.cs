@@ -8,5 +8,6 @@ namespace vkinegrab.Services.Csfd
         Task<Venue> ScrapeVenue(int venueId);
         Task<TmdbMovie?> ResolveTmdb(CsfdMovie movie);
         Task<TmdbMovie?> FetchTmdbById(int tmdbId);
+        Task<string?> FetchTrailerUrl(int tmdbId);
     }
 }

@@ -199,14 +199,16 @@ internal sealed class ImdbMetadataValidator
             return false;
         }
 
-        var normalizedImdb = new HashSet<string>(
-            imdbDirectors.Select(d => NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(d)))
-                         .Where(n => !string.IsNullOrEmpty(n)),
-            StringComparer.Ordinal);
-        if (normalizedImdb.Count == 0)
+        var normalizedImdbList = imdbDirectors
+            .Select(d => NormalizePersonNameOrderIndependent(matcher.NormalizePersonName(d)))
+            .Where(n => !string.IsNullOrEmpty(n))
+            .ToList();
+        if (normalizedImdbList.Count == 0)
         {
             return false;
         }
+
+        var normalizedImdbSet = new HashSet<string>(normalizedImdbList, StringComparer.Ordinal);
 
         foreach (var director in movieDirectors)
         {
@@ -216,7 +218,14 @@ internal sealed class ImdbMetadataValidator
                 continue;
             }
 
-            if (!normalizedImdb.Contains(normalizedDirector))
+            // Strict match first
+            if (normalizedImdbSet.Contains(normalizedDirector))
+            {
+                continue;
+            }
+
+            // Fuzzy fallback: handle transliteration differences (e.g., Czech "Hajao Mijazaki" vs English "Hayao Miyazaki")
+            if (!normalizedImdbList.Any(imdbName => NameSimilarity(normalizedDirector, imdbName) >= 0.75))
             {
                 return false;
             }
@@ -239,6 +248,64 @@ internal sealed class ImdbMetadataValidator
         var words = normalizedName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         Array.Sort(words, StringComparer.Ordinal);
         return string.Join(' ', words);
+    }
+
+    /// <summary>
+    /// Returns a similarity score (0.0–1.0) between two normalized names using Levenshtein distance.
+    /// Handles transliteration differences across romanization systems (e.g., Czech j vs English y for Japanese names).
+    /// </summary>
+    internal static double NameSimilarity(string a, string b)
+    {
+        if (string.Equals(a, b, StringComparison.Ordinal))
+        {
+            return 1.0;
+        }
+
+        var maxLen = Math.Max(a.Length, b.Length);
+        if (maxLen == 0)
+        {
+            return 1.0;
+        }
+
+        var distance = LevenshteinDistance(a, b);
+        return 1.0 - ((double)distance / maxLen);
+    }
+
+    private static int LevenshteinDistance(string s, string t)
+    {
+        var n = s.Length;
+        var m = t.Length;
+
+        // Use a single-row DP approach for O(min(n,m)) space
+        if (n < m)
+        {
+            (s, t) = (t, s);
+            (n, m) = (m, n);
+        }
+
+        var previous = new int[m + 1];
+        var current = new int[m + 1];
+
+        for (var j = 0; j <= m; j++)
+        {
+            previous[j] = j;
+        }
+
+        for (var i = 1; i <= n; i++)
+        {
+            current[0] = i;
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = s[i - 1] == t[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + cost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[m];
     }
 
     private async Task<ImdbTitleMetadata?> FetchTitleMetadata(string imdbId)

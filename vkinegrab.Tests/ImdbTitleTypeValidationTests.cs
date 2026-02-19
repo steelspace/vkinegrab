@@ -182,6 +182,52 @@ public class ImdbTitleTypeValidationTests
 
     #endregion
 
+    #region Fuzzy Director Matching (Transliteration)
+
+    [Fact]
+    public void AreDirectorsValid_CzechVsEnglishTransliteration_ReturnsTrue()
+    {
+        // "Hajao Mijazaki" (Czech) vs "Hayao Miyazaki" (English) — j↔y transliteration
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Hajao Mijazaki" };
+        var imdbDirectors = new List<string> { "Hayao Miyazaki" };
+        Assert.True(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Fact]
+    public void AreDirectorsValid_CompletelyDifferentNames_ReturnsFalse()
+    {
+        // Totally different names should not pass fuzzy matching
+        var validator = CreateValidator();
+        var movieDirectors = new List<string> { "Hajao Mijazaki" };
+        var imdbDirectors = new List<string> { "Steven Spielberg" };
+        Assert.False(validator.AreDirectorsValid(movieDirectors, imdbDirectors));
+    }
+
+    [Theory]
+    [InlineData("hajao mijazaki", "hayao miyazaki", 0.85)] // 2 char diff in 15 chars
+    [InlineData("christopher nolan", "christopher nolan", 1.0)]
+    [InlineData("totally different", "xyzabc uvwdef", 0.0)]
+    public void NameSimilarity_ReturnsExpectedRange(string a, string b, double minExpected)
+    {
+        var similarity = ImdbMetadataValidator.NameSimilarity(a, b);
+        Assert.True(similarity >= minExpected, $"Expected >= {minExpected}, got {similarity}");
+    }
+
+    [Fact]
+    public void NameSimilarity_IdenticalNames_ReturnsOne()
+    {
+        Assert.Equal(1.0, ImdbMetadataValidator.NameSimilarity("test", "test"));
+    }
+
+    [Fact]
+    public void NameSimilarity_EmptyStrings_ReturnsOne()
+    {
+        Assert.Equal(1.0, ImdbMetadataValidator.NameSimilarity("", ""));
+    }
+
+    #endregion
+
     private static ImdbMetadataValidator CreateValidator()
     {
         var handler = new HttpClientHandler();

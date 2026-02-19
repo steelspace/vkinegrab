@@ -53,6 +53,15 @@ internal sealed class ImdbResolver
     }
 
     /// <summary>
+    /// Fetches fresh rating data for a known IMDb ID without performing any search.
+    /// </summary>
+    public async Task<(double? Rating, int? RatingCount)> FetchRating(string imdbId)
+    {
+        var (_, metadata) = await validator.ValidateAndGetMetadata(imdbId, new CsfdMovie());
+        return (metadata?.Rating, metadata?.RatingCount);
+    }
+
+    /// <summary>
     /// Legacy method for backward compatibility.
     /// </summary>
     public async Task<string?> ResolveImdbId(HtmlDocument csfdDoc, CsfdMovie movie)

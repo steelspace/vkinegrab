@@ -25,14 +25,14 @@ public class CsfdScraper : ICsfdScraper
         tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
     }
 
-    public async Task<CsfdMovie> ScrapeMovie(int movieId)
+    public async Task<CsfdMovie> ScrapeMovie(int movieId, bool resolveImdb = true)
     {
         // CSFD handles numeric IDs by redirecting to the full URL (usually), or just serving the content.
         // We can just query /film/ID
-        return await ScrapeMovie($"https://www.csfd.cz/film/{movieId}");
+        return await ScrapeMovie($"https://www.csfd.cz/film/{movieId}", resolveImdb);
     }
 
-    public async Task<CsfdMovie> ScrapeMovie(string url)
+    public async Task<CsfdMovie> ScrapeMovie(string url, bool resolveImdb = true)
     {
         Console.WriteLine($"Downloading: {url}");
         var client = httpClientFactory.CreateClient("Csfd");
@@ -144,10 +144,13 @@ public class CsfdScraper : ICsfdScraper
         }
 
         // Resolve IMDb ID and rating in a single pass (no duplicate HTTP requests)
-        var (imdbId, imdbRating, imdbRatingCount) = await imdbResolver.ResolveImdb(doc, movie);
-        movie.ImdbId = imdbId;
-        movie.ImdbRating = imdbRating;
-        movie.ImdbRatingCount = imdbRatingCount;
+        if (resolveImdb)
+        {
+            var (imdbId, imdbRating, imdbRatingCount) = await imdbResolver.ResolveImdb(doc, movie);
+            movie.ImdbId = imdbId;
+            movie.ImdbRating = imdbRating;
+            movie.ImdbRatingCount = imdbRatingCount;
+        }
 
         return movie;
     }
@@ -242,6 +245,11 @@ public class CsfdScraper : ICsfdScraper
     public async Task<TmdbMovie?> FetchTmdbById(int tmdbId)
     {
         return await tmdbResolver.GetMovieById(tmdbId);
+    }
+
+    public async Task<(double? Rating, int? RatingCount)> FetchImdbRating(string imdbId)
+    {
+        return await imdbResolver.FetchRating(imdbId);
     }
 
     public async Task<string?> FetchTrailerUrl(int tmdbId)

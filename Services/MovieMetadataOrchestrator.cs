@@ -19,10 +19,19 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
 
     public async Task<Movie> ResolveMovieMetadataAsync(int csfdId, Movie? existing, CancellationToken ct = default)
     {
-        // 1. Scrape CSFD (This is our primary source of IDs and local titles)
-        var csfdMovie = await csfdScraper.ScrapeMovie(csfdId);
+        // 1. Scrape CSFD (skip IMDB resolution if we already have the ID from a previous run)
+        var hasExistingImdb = !string.IsNullOrEmpty(existing?.ImdbId);
+        var csfdMovie = await csfdScraper.ScrapeMovie(csfdId, resolveImdb: !hasExistingImdb);
 
-        // 2. Resolve TMDB
+        if (hasExistingImdb)
+        {
+            csfdMovie.ImdbId = existing!.ImdbId;
+            var (rating, ratingCount) = await csfdScraper.FetchImdbRating(existing.ImdbId!);
+            csfdMovie.ImdbRating = rating;
+            csfdMovie.ImdbRatingCount = ratingCount;
+        }
+
+        // 2. Resolve TMDB (skip search if we already have the ID from a previous run)
         TmdbMovie? tmdbMovie = null;
         if (existing?.TmdbId.HasValue == true)
         {

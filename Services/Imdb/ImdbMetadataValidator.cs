@@ -200,7 +200,7 @@ internal sealed class ImdbMetadataValidator
         }
 
         var normalizedImdbRaw = imdbDirectors
-            .Select(d => matcher.NormalizePersonName(d))
+            .Select(d => NormalizeWithTransliteration(d))
             .Where(n => !string.IsNullOrEmpty(n))
             .ToList();
         if (normalizedImdbRaw.Count == 0)
@@ -214,7 +214,7 @@ internal sealed class ImdbMetadataValidator
 
         foreach (var director in movieDirectors)
         {
-            var normalizedRaw = matcher.NormalizePersonName(director);
+            var normalizedRaw = NormalizeWithTransliteration(director);
             if (string.IsNullOrEmpty(normalizedRaw))
             {
                 continue;
@@ -229,7 +229,7 @@ internal sealed class ImdbMetadataValidator
             }
 
             // Fuzzy fallback: compare using best word-permutation similarity
-            // to handle transliteration differences (e.g., Czech "Tacuja Jošihara" vs English "Tatsuya Yoshihara")
+            // for remaining transliteration differences not covered by the rule table
             if (!normalizedImdbRaw.Any(imdbName => BestPermutationSimilarity(normalizedRaw, imdbName) >= 0.70))
             {
                 return false;
@@ -237,6 +237,27 @@ internal sealed class ImdbMetadataValidator
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Transliterates Czech romanization to English BEFORE stripping diacritics,
+    /// so that Czech-specific characters (š, č, ž, etc.) are properly converted
+    /// to their Hepburn/RR equivalents (sh, ch, z, etc.) before FormD decomposition
+    /// would collapse them into plain letters (s, c, z).
+    /// </summary>
+    private string NormalizeWithTransliteration(string rawName)
+    {
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            return string.Empty;
+        }
+
+        // Transliterate on the lowercased (but diacritic-preserving) form
+        var lowered = rawName.ToLowerInvariant();
+        var transliterated = CzechRomanizationConverter.TransliterateToEnglish(lowered);
+
+        // Then strip remaining diacritics and non-letter chars via standard normalization
+        return matcher.NormalizePersonName(transliterated);
     }
 
     /// <summary>

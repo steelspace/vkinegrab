@@ -10,6 +10,7 @@ internal static class CountryCodeMapper
         ["andorra"] = "AD",
         ["anglie"] = "GB",
         ["angola"] = "AO",
+        ["angličtina"] = "ENG",
         ["antigua a barbuda"] = "AG",
         ["argentina"] = "AR",
         ["arménie"] = "AM",

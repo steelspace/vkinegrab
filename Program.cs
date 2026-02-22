@@ -199,6 +199,47 @@ if (args.Length > 0 && args[0].Equals("backfill-origin-codes", StringComparison.
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("backfill-localized-titles", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Normalizing localized title keys to ISO country codes...");
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found.");
+        return;
+    }
+
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    foreach (var movie in movies)
+    {
+        try
+        {
+            var normalizedTitles = NormalizeLocalizedTitles(movie.LocalizedTitles);
+            if (LocalizedTitlesAreEquivalent(movie.LocalizedTitles, normalizedTitles))
+            {
+                skipped++;
+                continue;
+            }
+
+            movie.LocalizedTitles = normalizedTitles;
+            await databaseService.StoreMovie(movie);
+            updated++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {movie.CsfdId}: {movie.Title ?? "Untitled"} — {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Updated: {updated}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("report-origin-codes", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Generating origin country code coverage report...");
@@ -925,4 +966,57 @@ static IEnumerable<string> BuildOriginCountryCandidates(Movie movie)
     }
 
     return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+}
+
+static Dictionary<string, string> NormalizeLocalizedTitles(Dictionary<string, string>? localizedTitles)
+{
+    var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    if (localizedTitles == null)
+    {
+        return normalized;
+    }
+
+    foreach (var entry in localizedTitles)
+    {
+        if (string.IsNullOrWhiteSpace(entry.Value))
+        {
+            continue;
+        }
+
+        var codes = CountryCodeMapper.MapToIsoAlpha2(new[] { entry.Key });
+        var key = codes.Count > 0 ? codes[0] : entry.Key;
+
+        if (!normalized.ContainsKey(key))
+        {
+            normalized[key] = entry.Value;
+        }
+    }
+
+    return normalized;
+}
+
+static bool LocalizedTitlesAreEquivalent(Dictionary<string, string>? current, Dictionary<string, string> normalized)
+{
+    if (current == null)
+    {
+        return normalized.Count == 0;
+    }
+
+    var lookup = new Dictionary<string, string>(current, StringComparer.OrdinalIgnoreCase);
+
+    if (lookup.Count != normalized.Count)
+    {
+        return false;
+    }
+
+    foreach (var entry in normalized)
+    {
+        if (!lookup.TryGetValue(entry.Key, out var existingValue) || existingValue != entry.Value)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

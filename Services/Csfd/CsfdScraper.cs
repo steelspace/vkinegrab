@@ -2,6 +2,7 @@ using HtmlAgilityPack;
 using System.Net;
 using System.Text.RegularExpressions;
 using vkinegrab.Models;
+using vkinegrab.Services;
 using vkinegrab.Services.Imdb;
 using vkinegrab.Services.Tmdb;
 
@@ -69,7 +70,9 @@ public class CsfdScraper : ICsfdScraper
                               ?? Clean(flagNode?.GetAttributeValue("alt", string.Empty))
                               ?? "Unspecified";
 
-                movie.LocalizedTitles.TryAdd(country, localizedTitle);
+                var countryCodes = CountryCodeMapper.MapToIsoAlpha2(new[] { country });
+                var countryKey = countryCodes.Count > 0 ? countryCodes[0] : country;
+                movie.LocalizedTitles.TryAdd(countryKey, localizedTitle);
             }
         }
 

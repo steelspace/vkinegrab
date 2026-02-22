@@ -10,6 +10,7 @@ namespace vkinegrab.Services
         Task StoreMovie(Movie movie);
         Task<Movie?> GetMovie(int csfdId);
         Task<IReadOnlyList<Schedule>> GetSchedulesAsync();
+        Task<long> RemoveLegacyOriginCountriesFieldAsync();
         // Retrieval
         Task<IReadOnlyList<Movie>> GetAllMoviesAsync();
         Task<IReadOnlyList<Movie>> GetMoviesWithMissingMetadataAsync();

@@ -14,7 +14,7 @@ public class Movie
     public string? Rating { get; set; }
     public string? Description { get; set; }
     public string? Origin { get; set; }
-    public List<string> OriginCountries { get; set; } = new();
+    public List<string> OriginCountryCodes { get; set; } = new();
     public List<string> Genres { get; set; } = new();
     public List<string> Directors { get; set; } = new();
     public List<string> Cast { get; set; } = new();

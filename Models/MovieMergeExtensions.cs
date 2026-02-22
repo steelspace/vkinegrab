@@ -1,5 +1,7 @@
 namespace vkinegrab.Models;
 
+using vkinegrab.Services;
+
 public static class MovieMergeExtensions
 {
     /// <summary>
@@ -33,7 +35,7 @@ public static class MovieMergeExtensions
                 : tmdbMovie?.Overview,
             
             Origin = csfdMovie.Origin,
-            OriginCountries = csfdMovie.Origins != null ? new List<string>(csfdMovie.Origins) : new List<string>(),
+            OriginCountryCodes = CountryCodeMapper.MapToIsoAlpha2(csfdMovie.Origins),
             Genres = csfdMovie.Genres ?? new List<string>(),
             Directors = csfdMovie.Directors ?? new List<string>(),
             Cast = csfdMovie.Cast ?? new List<string>(),

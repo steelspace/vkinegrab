@@ -57,8 +57,8 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
             if (string.IsNullOrWhiteSpace(merged.CsfdPosterUrl) && !string.IsNullOrWhiteSpace(existing.CsfdPosterUrl))
                 merged.CsfdPosterUrl = existing.CsfdPosterUrl;
 
-            if ((merged.OriginCountries == null || merged.OriginCountries.Count == 0) && existing.OriginCountries?.Count > 0)
-                merged.OriginCountries = new List<string>(existing.OriginCountries);
+            if ((merged.OriginCountryCodes == null || merged.OriginCountryCodes.Count == 0) && existing.OriginCountryCodes?.Count > 0)
+                merged.OriginCountryCodes = new List<string>(existing.OriginCountryCodes);
 
             if (!merged.ImdbRating.HasValue && existing.ImdbRating.HasValue)
             {

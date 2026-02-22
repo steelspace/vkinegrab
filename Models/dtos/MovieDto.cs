@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace vkinegrab.Models.Dtos;
 
+[BsonIgnoreExtraElements]
 internal class MovieDto
 {
     [BsonId]
@@ -38,8 +39,8 @@ internal class MovieDto
     [BsonElement("origin")]
     public string? Origin { get; set; }
 
-    [BsonElement("origin_countries")]
-    public List<string> OriginCountries { get; set; } = new();
+    [BsonElement("origin_country_codes")]
+    public List<string> OriginCountryCodes { get; set; } = new();
 
     [BsonElement("genres")]
     public List<string> Genres { get; set; } = new();
@@ -109,7 +110,7 @@ internal class MovieDto
             Rating = Rating,
             Description = Description,
             Origin = Origin,
-            OriginCountries = OriginCountries ?? new List<string>(),
+            OriginCountryCodes = OriginCountryCodes ?? new List<string>(),
             Genres = Genres ?? new List<string>(),
             Directors = Directors ?? new List<string>(),
             Cast = Cast ?? new List<string>(),

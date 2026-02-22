@@ -17,8 +17,8 @@ public class MovieMergeExtensionsTests
             OriginalTitle = "CSFD Original",
             Year = "2023",
             Description = "CSFD Description",
-            Origin = "Czech Republic",
-            Origins = new List<string> { "Czech Republic" },
+            Origin = "Česká republika",
+            Origins = new List<string> { "Česká republika" },
             ImdbId = "tt1234567",
             Genres = new List<string> { "Drama", "Crime" },
             Directors = new List<string> { "Director One" },
@@ -57,8 +57,8 @@ public class MovieMergeExtensionsTests
         Assert.Equal("CSFD Original", merged.OriginalTitle);
         Assert.Equal("2023", merged.Year);
         Assert.Equal("CSFD Description", merged.Description);
-        Assert.Equal("Czech Republic", merged.Origin);
-        Assert.Equal(new List<string> { "Czech Republic" }, merged.OriginCountries);
+        Assert.Equal("Česká republika", merged.Origin);
+        Assert.Equal(new List<string> { "CZ" }, merged.OriginCountryCodes);
         Assert.Equal(new List<string> { "Drama", "Crime" }, merged.Genres);
         Assert.Equal(new List<string> { "Director One" }, merged.Directors);
         Assert.Equal(new List<string> { "Actor One", "Actor Two" }, merged.Cast);
@@ -90,7 +90,7 @@ public class MovieMergeExtensionsTests
             Title = "Movie Title",
             Description = "Movie Description",
             PosterUrl = "https://csfd.cz/poster.jpg",
-            Origins = new List<string> { "Country" }
+            Origins = new List<string> { "USA", "Československo" }
         };
 
         // Act
@@ -102,7 +102,7 @@ public class MovieMergeExtensionsTests
         Assert.Equal("Movie Title", merged.Title);
         Assert.Equal("Movie Description", merged.Description);
         Assert.Equal("https://csfd.cz/poster.jpg", merged.PosterUrl);
-        Assert.Equal(new List<string> { "Country" }, merged.OriginCountries);
+        Assert.Equal(new List<string> { "US", "CS" }, merged.OriginCountryCodes);
         Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
         Assert.Null(merged.BackdropUrl);
     }

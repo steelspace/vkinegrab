@@ -102,7 +102,7 @@ public class DatabaseService : IDatabaseService
             Rating = movie.Rating,
             Description = movie.Description,
             Origin = movie.Origin,
-            OriginCountries = movie.OriginCountries ?? new List<string>(),
+            OriginCountryCodes = movie.OriginCountryCodes ?? new List<string>(),
             Genres = movie.Genres,
             Directors = movie.Directors,
             Cast = movie.Cast,
@@ -137,7 +137,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Rating, storedMovie.Rating)
                 .Set(m => m.Description, storedMovie.Description)
                 .Set(m => m.Origin, storedMovie.Origin)
-                .Set(m => m.OriginCountries, storedMovie.OriginCountries)
+                .Set(m => m.OriginCountryCodes, storedMovie.OriginCountryCodes)
                 .Set(m => m.Genres, storedMovie.Genres)
                 .Set(m => m.Directors, storedMovie.Directors)
                 .Set(m => m.Cast, storedMovie.Cast)
@@ -422,6 +422,13 @@ public class DatabaseService : IDatabaseService
         {
             return false;
         }
+    }
+
+    public async Task<long> RemoveLegacyOriginCountriesFieldAsync()
+    {
+        var update = Builders<MovieDto>.Update.Unset("origin_countries");
+        var result = await moviesCollection.UpdateManyAsync(Builders<MovieDto>.Filter.Exists("origin_countries"), update);
+        return result.ModifiedCount;
     }
 
 }

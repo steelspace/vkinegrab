@@ -154,6 +154,97 @@ if (args.Length > 0 && args[0].Equals("delete-movies", StringComparison.OrdinalI
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("backfill-origin-codes", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Backfilling origin country codes for all movies...");
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found.");
+        return;
+    }
+
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    foreach (var movie in movies)
+    {
+        try
+        {
+            var sourceCountries = BuildOriginCountryCandidates(movie);
+            var codes = CountryCodeMapper.MapToIsoAlpha2(sourceCountries);
+
+            var current = movie.OriginCountryCodes ?? new List<string>();
+            var changed = !current.SequenceEqual(codes, StringComparer.OrdinalIgnoreCase);
+
+            if (!changed)
+            {
+                skipped++;
+                continue;
+            }
+
+            movie.OriginCountryCodes = codes;
+            await databaseService.StoreMovie(movie);
+            updated++;
+        }
+        catch
+        {
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Updated: {updated}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("report-origin-codes", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Generating origin country code coverage report...");
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found.");
+        return;
+    }
+
+    var missing = movies
+        .Where(m => !string.IsNullOrWhiteSpace(m.Origin))
+        .Where(m => m.OriginCountryCodes == null || m.OriginCountryCodes.Count == 0)
+        .OrderBy(m => m.Title)
+        .ToList();
+
+    var withOrigin = movies.Count(m => !string.IsNullOrWhiteSpace(m.Origin));
+    var withCodes = movies.Count(m => m.OriginCountryCodes != null && m.OriginCountryCodes.Count > 0);
+
+    Console.WriteLine($"Total movies: {movies.Count}");
+    Console.WriteLine($"Movies with origin text: {withOrigin}");
+    Console.WriteLine($"Movies with origin country codes: {withCodes}");
+    Console.WriteLine($"Movies missing codes (while having origin text): {missing.Count}");
+
+    if (missing.Count > 0)
+    {
+        Console.WriteLine("\nSample missing entries (up to 50):");
+        foreach (var movie in missing.Take(50))
+        {
+            var origin = string.IsNullOrWhiteSpace(movie.Origin) ? "N/A" : movie.Origin;
+            Console.WriteLine($"- {movie.CsfdId}: {movie.Title} | Origin: {origin}");
+        }
+    }
+
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("cleanup-origin-countries", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Removing legacy origin_countries field from MongoDB movies collection...");
+    var modified = await databaseService.RemoveLegacyOriginCountriesFieldAsync();
+    Console.WriteLine($"Done. Updated documents: {modified}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnoreCase))
 {
     var remainingArgs = args.Skip(1).ToArray();
@@ -687,10 +778,10 @@ try
     Console.WriteLine($"TITLE: {movie.Title}");
     Console.WriteLine($"YEAR: {movie.Year}");
     Console.WriteLine($"ORIGIN: {movie.Origin}");
-    var originCountriesDisplay = movie.OriginCountries != null && movie.OriginCountries.Count > 0
-        ? string.Join(", ", movie.OriginCountries)
+    var originCountryCodesDisplay = movie.OriginCountryCodes != null && movie.OriginCountryCodes.Count > 0
+        ? string.Join(", ", movie.OriginCountryCodes)
         : "N/A";
-    Console.WriteLine($"ORIGIN COUNTRIES: {originCountriesDisplay}");
+    Console.WriteLine($"ORIGIN COUNTRY CODES: {originCountryCodesDisplay}");
     Console.WriteLine($"DURATION: {movie.Duration}");
     Console.WriteLine($"RATING: {movie.Rating}");
     Console.WriteLine($"GENRES: {string.Join(", ", movie.Genres)}");
@@ -817,4 +908,21 @@ static async Task PrintCinemaSchedule(IServiceProvider serviceProvider, string[]
     }
 
     Console.WriteLine("(*) indicates an active ticket link.");
+}
+
+static IEnumerable<string> BuildOriginCountryCandidates(Movie movie)
+{
+    var candidates = new List<string>();
+
+    if (!string.IsNullOrWhiteSpace(movie.Origin))
+    {
+        var fromOrigin = System.Text.RegularExpressions.Regex
+            .Split(movie.Origin, "[/·•–—|&,]")
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+        candidates.AddRange(fromOrigin);
+    }
+
+    return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
 }

@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using vkinegrab.Models;
 
@@ -33,10 +35,11 @@ internal sealed class TmdbResolver
 
         // Fall back to title search
         var searchTitles = GetSearchTitles(movie);
+        var normalizedTitles = BuildNormalizedTitleSet(movie);
 
         foreach (var title in searchTitles)
         {
-            var tmdbMovie = await SearchTmdb(title, movie.Year);
+            var tmdbMovie = await SearchTmdb(title, movie.Year, normalizedTitles);
             if (tmdbMovie != null)
             {
                 tmdbMovie.TrailerUrl = await FetchTrailerUrl(tmdbMovie.Id);
@@ -135,31 +138,31 @@ internal sealed class TmdbResolver
         return null;
     }
 
-    private async Task<TmdbMovie?> SearchTmdb(string title, string? year)
+    private async Task<TmdbMovie?> SearchTmdb(string title, string? year, HashSet<string> normalizedTitles)
     {
         var yearDigits = ExtractYearDigits(year);
-        var tmdbMovie = await ExecuteSearch(title, yearDigits);
+        var tmdbMovie = await ExecuteSearch(title, yearDigits, normalizedTitles);
 
         // If not found and we had a year, try +/- 1 year (common discrepancies)
         if (tmdbMovie == null && !string.IsNullOrEmpty(yearDigits) && int.TryParse(yearDigits, out var y))
         {
-            tmdbMovie = await ExecuteSearch(title, (y + 1).ToString());
+            tmdbMovie = await ExecuteSearch(title, (y + 1).ToString(), normalizedTitles);
             if (tmdbMovie == null)
             {
-                tmdbMovie = await ExecuteSearch(title, (y - 1).ToString());
+                tmdbMovie = await ExecuteSearch(title, (y - 1).ToString(), normalizedTitles);
             }
         }
 
         // Final fallback: search without year
         if (tmdbMovie == null)
         {
-            tmdbMovie = await ExecuteSearch(title, null);
+            tmdbMovie = await ExecuteSearch(title, null, normalizedTitles);
         }
 
         return tmdbMovie;
     }
 
-    private async Task<TmdbMovie?> ExecuteSearch(string title, string? yearDigits)
+    private async Task<TmdbMovie?> ExecuteSearch(string title, string? yearDigits, HashSet<string> normalizedTitles)
     {
         var queryParams = new List<string>
         {
@@ -198,7 +201,15 @@ internal sealed class TmdbResolver
 
             foreach (var result in results.EnumerateArray())
             {
-                if (result.TryGetProperty("id", out var idElement) && idElement.ValueKind == JsonValueKind.Number)
+                if (!result.TryGetProperty("id", out var idElement) || idElement.ValueKind != JsonValueKind.Number)
+                {
+                    continue;
+                }
+
+                var resultTitle = result.TryGetProperty("title", out var t) ? t.GetString() : null;
+                var resultOriginalTitle = result.TryGetProperty("original_title", out var ot) ? ot.GetString() : null;
+
+                if (IsTitleMatch(normalizedTitles, resultTitle, resultOriginalTitle))
                 {
                     return ParseTmdbMovie(result);
                 }
@@ -296,6 +307,64 @@ internal sealed class TmdbResolver
         }
 
         return tmdbMovie;
+    }
+
+    private HashSet<string> BuildNormalizedTitleSet(CsfdMovie movie)
+    {
+        var candidates = new List<string?> { movie.Title, movie.OriginalTitle };
+        candidates.AddRange(movie.LocalizedTitles.Values);
+
+        var normalized = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            var norm = NormalizeTitle(candidate);
+            if (!string.IsNullOrEmpty(norm))
+            {
+                normalized.Add(norm);
+            }
+        }
+
+        return normalized;
+    }
+
+    private static bool IsTitleMatch(HashSet<string> normalizedTitles, string? resultTitle, string? resultOriginalTitle)
+    {
+        var normalizedResult = NormalizeTitle(resultTitle);
+        var normalizedOriginal = NormalizeTitle(resultOriginalTitle);
+
+        return (!string.IsNullOrEmpty(normalizedResult) && normalizedTitles.Contains(normalizedResult))
+            || (!string.IsNullOrEmpty(normalizedOriginal) && normalizedTitles.Contains(normalizedOriginal));
+    }
+
+    internal static string NormalizeTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return string.Empty;
+        }
+
+        var normalized = title.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+        }
+
+        return sb.ToString();
     }
 
     private string? ExtractYearDigits(string? value)

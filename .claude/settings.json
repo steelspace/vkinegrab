@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet \"C:/Users/PetrValach/AppData/Local/Temp/tmdb_verify/bin/Debug/net10.0/TmdbVerify.dll\")",
+      "Bash(dotnet build \"$PROJ\" --no-incremental -v minimal)",
+      "Read(//c/Users/PetrValach/AppData/Local/Temp/tmdb_verify/bin/Debug/net10.0/**)",
+      "Read(//c/Users/PetrValach/AppData/Local/Temp/tmdb_verify/**)",
+      "Bash(dotnet build \"$PROJ\")",
+      "Bash(dotnet build \"$PROJ\" -v normal)",
+      "Read(//c/Users/PetrValach/AppData/Local/Temp/**)",
+      "Bash(dotnet build)",
+      "Bash(dotnet run --no-build)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\PetrValach\\AppData\\Local\\Temp\\tmdb_verify\\bin",
+      "C:\\Users\\PetrValach\\AppData\\Local\\Temp\\tmdb_verify"
+    ]
+  }
+}

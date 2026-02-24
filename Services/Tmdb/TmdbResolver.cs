@@ -153,8 +153,10 @@ internal sealed class TmdbResolver
             }
         }
 
-        // Final fallback: search without year
-        if (tmdbMovie == null)
+        // Final fallback: search without year — only when CSFD has no year data.
+        // If CSFD has a year, we already tried exact/±1; dropping the year entirely
+        // would match any film sharing the title regardless of decade.
+        if (tmdbMovie == null && string.IsNullOrEmpty(yearDigits))
         {
             tmdbMovie = await ExecuteSearch(title, null, normalizedTitles);
         }

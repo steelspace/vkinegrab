@@ -503,6 +503,43 @@ if (args.Length > 0 && args[0].Equals("update-trailers", StringComparison.Ordina
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("fix-movie", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2 || !int.TryParse(args[1], out var fixCsfdId))
+    {
+        Console.WriteLine("Usage: fix-movie <csfdId>");
+        Console.WriteLine("Clears the TMDB pairing for the given movie and re-resolves metadata from scratch.");
+        return;
+    }
+
+    var existing = await databaseService.GetMovie(fixCsfdId);
+    if (existing == null)
+    {
+        Console.WriteLine($"Movie with CSFD ID {fixCsfdId} not found in database.");
+        return;
+    }
+
+    Console.WriteLine($"Found: {existing.Title} (CSFD {existing.CsfdId})");
+    Console.WriteLine($"  Current TmdbId: {existing.TmdbId}");
+    Console.WriteLine($"  Current ImdbId: {existing.ImdbId}");
+
+    // Clear TMDB data so the orchestrator re-resolves from scratch
+    existing.TmdbId = null;
+    existing.TrailerUrl = null;
+    existing.PosterUrl = null;
+    existing.BackdropUrl = null;
+
+    var metadataOrchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();
+    var updated = await metadataOrchestrator.ResolveMovieMetadataAsync(fixCsfdId, existing);
+
+    Console.WriteLine($"  Resolved TmdbId: {updated.TmdbId}");
+    Console.WriteLine($"  Resolved ImdbId: {updated.ImdbId}");
+
+    await databaseService.StoreMovie(updated);
+    Console.WriteLine("✓ Movie updated in database.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("retry-imdb", StringComparison.OrdinalIgnoreCase))
 {
     var metadataOrchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();

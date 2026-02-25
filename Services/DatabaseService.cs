@@ -119,6 +119,7 @@ public class DatabaseService : IDatabaseService
             Homepage = movie.Homepage,
             TrailerUrl = movie.TrailerUrl,
             LocalizedTitles = movie.LocalizedTitles,
+            LocalizedDescriptions = movie.LocalizedDescriptions,
             ReleaseDate = movie.ReleaseDate,
             StoredAt = movie.StoredAt ?? DateTime.UtcNow
         };
@@ -154,6 +155,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Homepage, storedMovie.Homepage)
                 .Set(m => m.TrailerUrl, storedMovie.TrailerUrl)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
+                .Set(m => m.LocalizedDescriptions, storedMovie.LocalizedDescriptions)
                 .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);
 

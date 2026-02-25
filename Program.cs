@@ -240,6 +240,40 @@ if (args.Length > 0 && args[0].Equals("backfill-localized-titles", StringCompari
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("update-movies", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Updating existing movies from CSFD/TMDB metadata...");
+    var orchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found in the database.");
+        return;
+    }
+
+    var updated = 0;
+    var failed = 0;
+
+    foreach (var movie in movies)
+    {
+        try
+        {
+            var refreshed = await orchestrator.ResolveMovieMetadataAsync(movie.CsfdId, movie);
+            await databaseService.StoreMovie(refreshed);
+            updated++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {movie.CsfdId}: {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Updated: {updated}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("report-origin-codes", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Generating origin country code coverage report...");

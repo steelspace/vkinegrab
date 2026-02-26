@@ -1,5 +1,6 @@
 namespace vkinegrab.Models;
 
+using System;
 using vkinegrab.Services;
 
 public static class MovieMergeExtensions
@@ -10,6 +11,17 @@ public static class MovieMergeExtensions
     /// </summary>
     public static Movie Merge(this CsfdMovie csfdMovie, TmdbMovie? tmdbMovie = null)
     {
+        var localizedDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(csfdMovie.Description))
+        {
+            localizedDescriptions["cs"] = csfdMovie.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(tmdbMovie?.Overview))
+        {
+            localizedDescriptions["en"] = tmdbMovie.Overview;
+        }
+
         var merged = new Movie
         {
             CsfdId = csfdMovie.Id,
@@ -60,6 +72,7 @@ public static class MovieMergeExtensions
             
             // Localization from CSFD
             LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>(),
+            LocalizedDescriptions = localizedDescriptions,
 
             // Release date (from TMDB when available)
             ReleaseDate = ParseReleaseDate(tmdbMovie?.ReleaseDate)

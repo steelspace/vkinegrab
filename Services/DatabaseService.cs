@@ -121,6 +121,7 @@ public class DatabaseService : IDatabaseService
             TrailerUrl = movie.TrailerUrl,
             Credits = movie.Credits?.Select(CrewMemberDto.FromModel).ToList() ?? new List<CrewMemberDto>(),
             LocalizedTitles = movie.LocalizedTitles,
+            LocalizedDescriptions = movie.LocalizedDescriptions,
             ReleaseDate = movie.ReleaseDate,
             StoredAt = movie.StoredAt ?? DateTime.UtcNow
         };
@@ -158,6 +159,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.TrailerUrl, storedMovie.TrailerUrl)
                 .Set(m => m.Credits, storedMovie.Credits)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
+                .Set(m => m.LocalizedDescriptions, storedMovie.LocalizedDescriptions)
                 .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);
 

@@ -41,6 +41,7 @@ public class Movie
     
     // Localization
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
+    public Dictionary<string, string> LocalizedDescriptions { get; set; } = new();
 
     // Release / storage metadata
     public DateTime? ReleaseDate { get; set; }

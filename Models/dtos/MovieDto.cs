@@ -96,6 +96,9 @@ internal class MovieDto
     [BsonElement("localized_titles")]
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
 
+    [BsonElement("localized_descriptions")]
+    public Dictionary<string, string> LocalizedDescriptions { get; set; } = new();
+
     [BsonElement("release_date")]
     public DateTime? ReleaseDate { get; set; }
 
@@ -135,6 +138,7 @@ internal class MovieDto
             TrailerUrl = TrailerUrl,
             Credits = Credits?.Select(c => c.ToModel()).ToList() ?? new List<CrewMember>(),
             LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
+            LocalizedDescriptions = LocalizedDescriptions ?? new Dictionary<string, string>(),
             ReleaseDate = ReleaseDate,
             StoredAt = StoredAt
         };

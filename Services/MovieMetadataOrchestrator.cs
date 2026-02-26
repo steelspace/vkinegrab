@@ -23,7 +23,7 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
         var hasExistingImdb = !string.IsNullOrEmpty(existing?.ImdbId);
         var csfdMovie = await csfdScraper.ScrapeMovie(csfdId, resolveImdb: !hasExistingImdb);
 
-        if (hasExistingImdb)
+        if (hasExistingImdb && !csfdMovie.IsStudentFilm)
         {
             csfdMovie.ImdbId = existing!.ImdbId;
             var (rating, ratingCount) = await csfdScraper.FetchImdbRating(existing.ImdbId!);
@@ -33,13 +33,16 @@ public class MovieMetadataOrchestrator : IMovieMetadataOrchestrator
 
         // 2. Resolve TMDB (skip search if we already have the ID from a previous run)
         TmdbMovie? tmdbMovie = null;
-        if (existing?.TmdbId.HasValue == true)
+        if (!csfdMovie.IsStudentFilm)
         {
-            tmdbMovie = await csfdScraper.FetchTmdbById(existing.TmdbId.Value);
-        }
-        else
-        {
-            tmdbMovie = await csfdScraper.ResolveTmdb(csfdMovie);
+            if (existing?.TmdbId.HasValue == true)
+            {
+                tmdbMovie = await csfdScraper.FetchTmdbById(existing.TmdbId.Value);
+            }
+            else
+            {
+                tmdbMovie = await csfdScraper.ResolveTmdb(csfdMovie);
+            }
         }
 
         // 3. Merge

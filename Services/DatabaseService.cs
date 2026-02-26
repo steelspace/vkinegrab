@@ -95,6 +95,7 @@ public class DatabaseService : IDatabaseService
             CsfdId = movie.CsfdId,
             TmdbId = movie.TmdbId,
             ImdbId = movie.ImdbId,
+            IsStudentFilm = movie.IsStudentFilm,
             Title = movie.Title,
             OriginalTitle = movie.OriginalTitle,
             Year = movie.Year,
@@ -150,6 +151,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.BackdropUrl, storedMovie.BackdropUrl)
                 .Set(m => m.ImdbRating, storedMovie.ImdbRating)
                 .Set(m => m.ImdbRatingCount, storedMovie.ImdbRatingCount)
+                .Set(m => m.IsStudentFilm, storedMovie.IsStudentFilm)
                 .Set(m => m.VoteAverage, storedMovie.VoteAverage)
                 .Set(m => m.VoteCount, storedMovie.VoteCount)
                 .Set(m => m.Popularity, storedMovie.Popularity)

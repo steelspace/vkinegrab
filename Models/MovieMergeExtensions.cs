@@ -57,6 +57,7 @@ public static class MovieMergeExtensions
                 : csfdMovie.PosterUrl,
 
             CsfdPosterUrl = csfdMovie.PosterUrl,
+            IsStudentFilm = csfdMovie.IsStudentFilm,
             
             BackdropUrl = tmdbMovie?.FullBackdropUrl,
             

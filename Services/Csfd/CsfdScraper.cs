@@ -45,6 +45,9 @@ public class CsfdScraper : ICsfdScraper
         movie.Id = ExtractIdFromUrl(url);
         var mainNode = doc.DocumentNode;
 
+        var typeNodes = mainNode.SelectNodes("//span[contains(@class, 'type')]");
+        movie.IsStudentFilm = typeNodes != null && typeNodes.Any(IsStudentFilmNode);
+
         // 2. Title - Text inside the H1 usually contains the title (sometimes followed by (year))
         var h1Node = mainNode.SelectSingleNode("//h1");
         movie.Title = Clean(h1Node?.InnerText);
@@ -147,7 +150,7 @@ public class CsfdScraper : ICsfdScraper
         }
 
         // Resolve IMDb ID and rating in a single pass (no duplicate HTTP requests)
-        if (resolveImdb)
+        if (resolveImdb && !movie.IsStudentFilm)
         {
             var (imdbId, imdbRating, imdbRatingCount) = await imdbResolver.ResolveImdb(doc, movie);
             movie.ImdbId = imdbId;
@@ -294,7 +297,7 @@ public class CsfdScraper : ICsfdScraper
         return creators;
     }
 
-    private string? Clean(string? input)
+    private static string? Clean(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
         var cleaned = HtmlEntity.DeEntitize(input).Trim();
@@ -303,6 +306,29 @@ public class CsfdScraper : ICsfdScraper
         cleaned = Regex.Replace(cleaned, @"\s*\([^)]*\)\s*$", string.Empty).Trim();
         
         return cleaned;
+    }
+
+    private static bool IsStudentFilmNode(HtmlNode node)
+    {
+        var rawText = HtmlEntity.DeEntitize(node.InnerText ?? string.Empty).Trim();
+        return ContainsStudentFilmText(rawText);
+    }
+
+    private static bool ContainsStudentFilmText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith('(') && trimmed.EndsWith(')'))
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        return trimmed.Contains("studentský", StringComparison.OrdinalIgnoreCase)
+               || trimmed.Contains("studentsky", StringComparison.OrdinalIgnoreCase);
     }
 
     private static List<string> ParseOrigins(string? originText)

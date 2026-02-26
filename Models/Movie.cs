@@ -23,6 +23,7 @@ public class Movie
     // Media (primarily from TMDB, keep CSFD source separately)
     public string? PosterUrl { get; set; }
     public string? CsfdPosterUrl { get; set; }
+    public bool IsStudentFilm { get; set; }
     public string? BackdropUrl { get; set; }
     
     // IMDb specific

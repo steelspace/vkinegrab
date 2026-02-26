@@ -18,6 +18,9 @@ internal class MovieDto
     [BsonElement("imdb_id")]
     public string? ImdbId { get; set; }
 
+    [BsonElement("is_student_film")]
+    public bool IsStudentFilm { get; set; }
+
     [BsonElement("title")]
     public string? Title { get; set; }
 
@@ -140,6 +143,7 @@ internal class MovieDto
             LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
             LocalizedDescriptions = LocalizedDescriptions ?? new Dictionary<string, string>(),
             ReleaseDate = ReleaseDate,
+            IsStudentFilm = IsStudentFilm,
             StoredAt = StoredAt
         };
     }

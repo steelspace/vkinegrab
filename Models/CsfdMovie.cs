@@ -20,4 +20,5 @@ public class CsfdMovie
     public List<string> Cast { get; set; } = new();
     public string? Description { get; set; }
     public string? PosterUrl { get; set; }
+    public bool IsStudentFilm { get; set; }
 }

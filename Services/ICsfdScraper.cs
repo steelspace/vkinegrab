@@ -10,5 +10,6 @@ namespace vkinegrab.Services.Csfd
         Task<TmdbMovie?> FetchTmdbById(int tmdbId);
         Task<(double? Rating, int? RatingCount)> FetchImdbRating(string imdbId);
         Task<string?> FetchTrailerUrl(int tmdbId);
+        Task<List<CrewMember>> FetchCredits(int tmdbId);
     }
 }

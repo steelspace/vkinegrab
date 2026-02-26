@@ -56,7 +56,8 @@ public class MovieMergeExtensionsTests
         Assert.Equal("CSFD Title", merged.Title);
         Assert.Equal("CSFD Original", merged.OriginalTitle);
         Assert.Equal("2023", merged.Year);
-        Assert.Equal("CSFD Description", merged.Description);
+        Assert.Equal("CSFD Description", merged.DescriptionCs);
+        Assert.Equal("TMDB Description", merged.DescriptionEn);
         Assert.Equal("Česká republika", merged.Origin);
         Assert.Equal(new List<string> { "CZ" }, merged.OriginCountryCodes);
         Assert.Equal(new List<string> { "Drama", "Crime" }, merged.Genres);
@@ -100,7 +101,8 @@ public class MovieMergeExtensionsTests
         Assert.Equal(789, merged.CsfdId);
         Assert.Null(merged.TmdbId);
         Assert.Equal("Movie Title", merged.Title);
-        Assert.Equal("Movie Description", merged.Description);
+        Assert.Equal("Movie Description", merged.DescriptionCs);
+        Assert.Null(merged.DescriptionEn);
         Assert.Equal("https://csfd.cz/poster.jpg", merged.PosterUrl);
         Assert.Equal(new List<string> { "US", "CS" }, merged.OriginCountryCodes);
         Assert.Equal("https://csfd.cz/poster.jpg", merged.CsfdPosterUrl);
@@ -130,7 +132,8 @@ public class MovieMergeExtensionsTests
 
         // Assert
         Assert.Equal("TMDB Fallback Title", merged.Title);
-        Assert.Equal("CSFD Desc", merged.Description); // CSFD preferred
+        Assert.Equal("CSFD Desc", merged.DescriptionCs);
+        Assert.Equal("TMDB Overview", merged.DescriptionEn);
     }
 
     [Fact]

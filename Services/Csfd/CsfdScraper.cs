@@ -260,6 +260,11 @@ public class CsfdScraper : ICsfdScraper
         return await tmdbResolver.FetchTrailerUrl(tmdbId);
     }
 
+    public async Task<List<CrewMember>> FetchCredits(int tmdbId)
+    {
+        return await tmdbResolver.FetchCredits(tmdbId);
+    }
+
     // Helper to extract list of people (actors, directors) based on the label (e.g. "Režie:", "Hrají:")
     private List<string> GetCreators(HtmlNode root, string labelSnippet)
     {

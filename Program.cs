@@ -154,6 +154,61 @@ if (args.Length > 0 && args[0].Equals("delete-movies", StringComparison.OrdinalI
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("backfill-credits", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Backfilling TMDB credits (cast & crew) for all movies...");
+    var csfdScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found.");
+        return;
+    }
+
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    foreach (var movie in movies)
+    {
+        try
+        {
+            if (!movie.TmdbId.HasValue)
+            {
+                skipped++;
+                continue;
+            }
+
+            if (movie.Credits.Count > 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            var credits = await csfdScraper.FetchCredits(movie.TmdbId.Value);
+            if (credits.Count == 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            movie.Credits = credits;
+            await databaseService.StoreMovie(movie);
+            updated++;
+            Console.WriteLine($"  ✓ {movie.CsfdId}: {movie.Title ?? "Untitled"} — {credits.Count} credits");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {movie.CsfdId}: {movie.Title ?? "Untitled"} — {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Updated: {updated}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("backfill-origin-codes", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Backfilling origin country codes for all movies...");
@@ -891,9 +946,13 @@ try
         Console.WriteLine($"  POSTER: {movie.PosterUrl ?? "N/A"}");
         Console.WriteLine($"  BACKDROP: {movie.BackdropUrl ?? "N/A"}");
         Console.WriteLine($"  TRAILER: {movie.TrailerUrl ?? "N/A"}");
-        if (!string.IsNullOrWhiteSpace(movie.Description))
+        if (!string.IsNullOrWhiteSpace(movie.DescriptionCs))
         {
-            Console.WriteLine($"  OVERVIEW: {movie.Description}");
+            Console.WriteLine($"  OVERVIEW (CS): {movie.DescriptionCs}");
+        }
+        if (!string.IsNullOrWhiteSpace(movie.DescriptionEn))
+        {
+            Console.WriteLine($"  OVERVIEW (EN): {movie.DescriptionEn}");
         }
     }
 
@@ -904,7 +963,8 @@ try
         Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
     }
     Console.WriteLine("--------------------------------------------------");
-    Console.WriteLine($"DESC: {movie.Description}");
+    Console.WriteLine($"DESC (CS): {movie.DescriptionCs}");
+    Console.WriteLine($"DESC (EN): {movie.DescriptionEn}");
     Console.WriteLine("--------------------------------------------------");
 }
 catch (Exception ex)

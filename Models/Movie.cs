@@ -12,7 +12,8 @@ public class Movie
     public string? Year { get; set; }
     public string? Duration { get; set; }
     public string? Rating { get; set; }
-    public string? Description { get; set; }
+    public string? DescriptionCs { get; set; }
+    public string? DescriptionEn { get; set; }
     public string? Origin { get; set; }
     public List<string> OriginCountryCodes { get; set; } = new();
     public List<string> Genres { get; set; } = new();
@@ -36,6 +37,7 @@ public class Movie
     public bool? Adult { get; set; }
     public string? Homepage { get; set; }
     public string? TrailerUrl { get; set; }
+    public List<CrewMember> Credits { get; set; } = new();
     
     // Localization
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();

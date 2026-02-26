@@ -30,6 +30,7 @@ internal sealed class TmdbResolver
             if (tmdbMovie != null)
             {
                 tmdbMovie.TrailerUrl = await FetchTrailerUrl(tmdbMovie.Id);
+                tmdbMovie.Credits = await FetchCredits(tmdbMovie.Id);
                 return tmdbMovie;
             }
         }
@@ -44,6 +45,7 @@ internal sealed class TmdbResolver
             if (tmdbMovie != null)
             {
                 tmdbMovie.TrailerUrl = await FetchTrailerUrl(tmdbMovie.Id);
+                tmdbMovie.Credits = await FetchCredits(tmdbMovie.Id);
                 return tmdbMovie;
             }
         }
@@ -435,6 +437,7 @@ internal sealed class TmdbResolver
             if (movie != null)
             {
                 movie.TrailerUrl = await FetchTrailerUrl(movie.Id);
+                movie.Credits = await FetchCredits(movie.Id);
             }
             return movie;
         }
@@ -627,6 +630,85 @@ internal sealed class TmdbResolver
         }
 
         return dp[m, n];
+    }
+
+    public async Task<List<CrewMember>> FetchCredits(int tmdbId)
+    {
+        var credits = new List<CrewMember>();
+        var url = $"{ApiBaseUrl}/movie/{tmdbId}/credits?language=en-US";
+
+        string responseJson;
+        try
+        {
+            responseJson = await client.GetStringAsync(url);
+        }
+        catch
+        {
+            return credits;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("cast", out var cast) && cast.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var member in cast.EnumerateArray())
+                {
+                    var parsed = ParseCrewMember(member, "Actor");
+                    if (parsed != null)
+                    {
+                        credits.Add(parsed);
+                    }
+                }
+            }
+
+            if (root.TryGetProperty("crew", out var crew) && crew.ValueKind == JsonValueKind.Array)
+            {
+                var seenCrew = new HashSet<(int id, string role)>();
+                foreach (var member in crew.EnumerateArray())
+                {
+                    var job = member.TryGetProperty("job", out var jobEl) ? jobEl.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(job))
+                        continue;
+
+                    var id = member.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number ? idEl.GetInt32() : 0;
+                    if (!seenCrew.Add((id, job)))
+                        continue;
+
+                    var parsed = ParseCrewMember(member, job);
+                    if (parsed != null)
+                    {
+                        credits.Add(parsed);
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Return whatever we collected
+        }
+
+        return credits;
+    }
+
+    private static CrewMember? ParseCrewMember(JsonElement member, string role)
+    {
+        var name = member.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        var id = member.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number ? idEl.GetInt32() : 0;
+        var profilePath = member.TryGetProperty("profile_path", out var ppEl) ? ppEl.GetString() : null;
+
+        return new CrewMember
+        {
+            TmdbId = id,
+            Name = name,
+            Role = role,
+            PhotoUrl = !string.IsNullOrEmpty(profilePath) ? $"https://image.tmdb.org/t/p/original{profilePath}" : null
+        };
     }
 
     public async Task<string?> FetchTrailerUrl(int tmdbId)

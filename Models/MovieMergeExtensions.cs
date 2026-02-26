@@ -30,9 +30,8 @@ public static class MovieMergeExtensions
             Rating = csfdMovie.Rating,
             ImdbRating = csfdMovie.ImdbRating,
             ImdbRatingCount = csfdMovie.ImdbRatingCount,
-            Description = !string.IsNullOrWhiteSpace(csfdMovie.Description)
-                ? csfdMovie.Description
-                : tmdbMovie?.Overview,
+            DescriptionCs = csfdMovie.Description,
+            DescriptionEn = tmdbMovie?.Overview,
             
             Origin = csfdMovie.Origin,
             OriginCountryCodes = CountryCodeMapper.MapToIsoAlpha2(csfdMovie.Origins),
@@ -57,6 +56,7 @@ public static class MovieMergeExtensions
             Adult = tmdbMovie?.Adult,
             Homepage = tmdbMovie?.Homepage,
             TrailerUrl = tmdbMovie?.TrailerUrl,
+            Credits = tmdbMovie?.Credits ?? new List<CrewMember>(),
             
             // Localization from CSFD
             LocalizedTitles = csfdMovie.LocalizedTitles ?? new Dictionary<string, string>(),

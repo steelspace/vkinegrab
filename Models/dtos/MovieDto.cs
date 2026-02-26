@@ -33,8 +33,11 @@ internal class MovieDto
     [BsonElement("rating")]
     public string? Rating { get; set; }
 
-    [BsonElement("description")]
-    public string? Description { get; set; }
+    [BsonElement("description_cs")]
+    public string? DescriptionCs { get; set; }
+
+    [BsonElement("description_en")]
+    public string? DescriptionEn { get; set; }
 
     [BsonElement("origin")]
     public string? Origin { get; set; }
@@ -87,6 +90,9 @@ internal class MovieDto
     [BsonElement("trailer_url")]
     public string? TrailerUrl { get; set; }
 
+    [BsonElement("credits")]
+    public List<CrewMemberDto> Credits { get; set; } = new();
+
     [BsonElement("localized_titles")]
     public Dictionary<string, string> LocalizedTitles { get; set; } = new();
 
@@ -108,7 +114,8 @@ internal class MovieDto
             Year = Year,
             Duration = Duration,
             Rating = Rating,
-            Description = Description,
+            DescriptionCs = DescriptionCs,
+            DescriptionEn = DescriptionEn,
             Origin = Origin,
             OriginCountryCodes = OriginCountryCodes ?? new List<string>(),
             Genres = Genres ?? new List<string>(),
@@ -126,6 +133,7 @@ internal class MovieDto
             Adult = Adult,
             Homepage = Homepage,
             TrailerUrl = TrailerUrl,
+            Credits = Credits?.Select(c => c.ToModel()).ToList() ?? new List<CrewMember>(),
             LocalizedTitles = LocalizedTitles ?? new Dictionary<string, string>(),
             ReleaseDate = ReleaseDate,
             StoredAt = StoredAt

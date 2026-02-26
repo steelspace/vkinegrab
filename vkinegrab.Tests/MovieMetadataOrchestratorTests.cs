@@ -120,5 +120,10 @@ public class MovieMetadataOrchestratorTests
         {
             return Task.FromResult<string?>(null);
         }
+
+        public Task<List<CrewMember>> FetchCredits(int tmdbId)
+        {
+            return Task.FromResult(new List<CrewMember>());
+        }
     }
 }

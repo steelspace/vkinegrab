@@ -100,7 +100,8 @@ public class DatabaseService : IDatabaseService
             Year = movie.Year,
             Duration = movie.Duration,
             Rating = movie.Rating,
-            Description = movie.Description,
+            DescriptionCs = movie.DescriptionCs,
+            DescriptionEn = movie.DescriptionEn,
             Origin = movie.Origin,
             OriginCountryCodes = movie.OriginCountryCodes ?? new List<string>(),
             Genres = movie.Genres,
@@ -118,6 +119,7 @@ public class DatabaseService : IDatabaseService
             Adult = movie.Adult,
             Homepage = movie.Homepage,
             TrailerUrl = movie.TrailerUrl,
+            Credits = movie.Credits?.Select(CrewMemberDto.FromModel).ToList() ?? new List<CrewMemberDto>(),
             LocalizedTitles = movie.LocalizedTitles,
             ReleaseDate = movie.ReleaseDate,
             StoredAt = movie.StoredAt ?? DateTime.UtcNow
@@ -135,7 +137,8 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Year, storedMovie.Year)
                 .Set(m => m.Duration, storedMovie.Duration)
                 .Set(m => m.Rating, storedMovie.Rating)
-                .Set(m => m.Description, storedMovie.Description)
+                .Set(m => m.DescriptionCs, storedMovie.DescriptionCs)
+                .Set(m => m.DescriptionEn, storedMovie.DescriptionEn)
                 .Set(m => m.Origin, storedMovie.Origin)
                 .Set(m => m.OriginCountryCodes, storedMovie.OriginCountryCodes)
                 .Set(m => m.Genres, storedMovie.Genres)
@@ -153,6 +156,7 @@ public class DatabaseService : IDatabaseService
                 .Set(m => m.Adult, storedMovie.Adult)
                 .Set(m => m.Homepage, storedMovie.Homepage)
                 .Set(m => m.TrailerUrl, storedMovie.TrailerUrl)
+                .Set(m => m.Credits, storedMovie.Credits)
                 .Set(m => m.LocalizedTitles, storedMovie.LocalizedTitles)
                 .Set(m => m.ReleaseDate, storedMovie.ReleaseDate)
                 .Set(m => m.StoredAt, storedMovie.StoredAt);
@@ -284,8 +288,10 @@ public class DatabaseService : IDatabaseService
         {
             var filter = Builders<MovieDto>.Filter.Or(
                 Builders<MovieDto>.Filter.Eq(m => m.TmdbId, null),
-                Builders<MovieDto>.Filter.Eq(m => m.Description, null),
-                Builders<MovieDto>.Filter.Eq(m => m.Description, string.Empty)
+                Builders<MovieDto>.Filter.Eq(m => m.DescriptionCs, null),
+                Builders<MovieDto>.Filter.Eq(m => m.DescriptionCs, string.Empty),
+                Builders<MovieDto>.Filter.Eq(m => m.DescriptionEn, null),
+                Builders<MovieDto>.Filter.Eq(m => m.DescriptionEn, string.Empty)
             );
 
             var dtos = await moviesCollection.Find(filter).ToListAsync();

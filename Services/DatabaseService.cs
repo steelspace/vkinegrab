@@ -14,6 +14,7 @@ public class DatabaseService : IDatabaseService
     private readonly IMongoCollection<MovieDto> moviesCollection;
     private readonly IMongoCollection<ScheduleDto> schedulesCollection;
     private readonly IMongoCollection<VenueDto> venuesCollection;
+    private readonly IMongoCollection<PremiereDto> premieresCollection;
 
     public DatabaseService(string connectionString)
     {
@@ -22,6 +23,7 @@ public class DatabaseService : IDatabaseService
         moviesCollection = database.GetCollection<MovieDto>("movies", null);
         schedulesCollection = database.GetCollection<ScheduleDto>("schedule", null);
         venuesCollection = database.GetCollection<VenueDto>("venues", null);
+        premieresCollection = database.GetCollection<PremiereDto>("premieres", null);
         
         InitializeIndexes();
     }
@@ -33,6 +35,7 @@ public class DatabaseService : IDatabaseService
         moviesCollection = database.GetCollection<MovieDto>("movies", null);
         schedulesCollection = database.GetCollection<ScheduleDto>("schedule", null);
         venuesCollection = database.GetCollection<VenueDto>("venues", null);
+        premieresCollection = database.GetCollection<PremiereDto>("premieres", null);
 
         InitializeIndexes();
     }
@@ -82,6 +85,21 @@ public class DatabaseService : IDatabaseService
         catch (Exception ex)
         {
             Console.WriteLine($"⚠ Warning: Unable to create venue index: {ex.Message}");
+        }
+
+        // Create unique index on premiere CsfdId
+        try
+        {
+            var premiereIndexOptions = new CreateIndexOptions { Unique = true };
+            var premiereIndex = new CreateIndexModel<PremiereDto>(
+                Builders<PremiereDto>.IndexKeys.Ascending(p => p.CsfdId),
+                premiereIndexOptions
+            );
+            premieresCollection.Indexes.CreateOne(premiereIndex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Warning: Unable to create premiere index: {ex.Message}");
         }
     }
 
@@ -433,6 +451,42 @@ public class DatabaseService : IDatabaseService
         catch (MongoException)
         {
             return false;
+        }
+    }
+
+    public async Task StorePremiereAsync(Premiere premiere)
+    {
+        var dto = premiere.ToDto();
+
+        try
+        {
+            var filter = Builders<PremiereDto>.Filter.Eq(p => p.CsfdId, dto.CsfdId);
+            var update = Builders<PremiereDto>.Update
+                .Set(p => p.CsfdId, dto.CsfdId)
+                .Set(p => p.PremiereDate, dto.PremiereDate)
+                .Set(p => p.StoredAt, dto.StoredAt);
+
+            await premieresCollection.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException($"Failed to store premiere for CSFD ID {premiere.CsfdId}", ex);
+        }
+    }
+
+    public async Task ClearPremieresAsync()
+    {
+        try
+        {
+            await premieresCollection.DeleteManyAsync(Builders<PremiereDto>.Filter.Empty);
+        }
+        catch (MongoException ex)
+        {
+            throw new InvalidOperationException("Failed to clear premieres", ex);
         }
     }
 

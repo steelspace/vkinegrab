@@ -430,6 +430,14 @@ if (args.Length > 0 && args[0].Equals("cleanup-origin-countries", StringComparis
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("grab-premieres", StringComparison.OrdinalIgnoreCase))
+{
+    var premiereStoreService = serviceProvider.GetRequiredService<PremiereStoreService>();
+    var (stored, failed) = await premiereStoreService.GrabAndStorePremieresAsync();
+    Console.WriteLine($"Done. Stored premieres: {stored}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnoreCase))
 {
     var remainingArgs = args.Skip(1).ToArray();
@@ -489,6 +497,12 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     var (fetched, skipped, failedMovies) = await collector.CollectMoviesFromSchedulesAsync(schedules);
 
     Console.WriteLine($"Done. Fetched: {fetched}. Skipped: {skipped}. Failed: {failedMovies}.");
+
+    // Grab premieres
+    Console.WriteLine("\nGrabbing premieres...");
+    var premiereStoreService = serviceProvider.GetRequiredService<PremiereStoreService>();
+    var (storedPremieres, failedPremieres) = await premiereStoreService.GrabAndStorePremieresAsync();
+    Console.WriteLine($"Done. Stored premieres: {storedPremieres}. Failed: {failedPremieres}.");
 
     // After storing schedules and movies, optionally fetch venues
     Console.WriteLine("To fetch venue details for stored performances run: grab-venues");

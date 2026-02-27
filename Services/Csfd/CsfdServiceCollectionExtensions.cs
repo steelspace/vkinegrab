@@ -44,6 +44,8 @@ public static class CsfdServiceCollectionExtensions
         services.AddSingleton<IMovieMetadataOrchestrator, MovieMetadataOrchestrator>();
         services.AddSingleton<SchedulesStoreService>();
         services.AddSingleton<MovieCollectorService>();
+        services.AddSingleton<IPremiereScraper, PremiereScraper>();
+        services.AddSingleton<PremiereStoreService>();
 
         return services;
     }

@@ -30,5 +30,9 @@ namespace vkinegrab.Services
 
         // Deletes all stored movies.
         Task ClearMoviesAsync();
+
+        // Premieres
+        Task StorePremiereAsync(Premiere premiere);
+        Task ClearPremieresAsync();
     }
 }

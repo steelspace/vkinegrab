@@ -490,6 +490,12 @@ public class DatabaseService : IDatabaseService
         }
     }
 
+    public async Task<IReadOnlyList<Premiere>> GetPremieresAsync()
+    {
+        var dtos = await premieresCollection.Find(Builders<PremiereDto>.Filter.Empty).ToListAsync();
+        return dtos.Select(d => d.ToModel()).ToList();
+    }
+
     public async Task<long> RemoveLegacyOriginCountriesFieldAsync()
     {
         var update = Builders<MovieDto>.Update.Unset("origin_countries");

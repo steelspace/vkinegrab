@@ -34,5 +34,6 @@ namespace vkinegrab.Services
         // Premieres
         Task StorePremiereAsync(Premiere premiere);
         Task ClearPremieresAsync();
+        Task<IReadOnlyList<Premiere>> GetPremieresAsync();
     }
 }

@@ -6,11 +6,13 @@ public class PremiereStoreService
 {
     private readonly IPremiereScraper premiereScraper;
     private readonly IDatabaseService databaseService;
+    private readonly MovieCollectorService movieCollectorService;
 
-    public PremiereStoreService(IPremiereScraper premiereScraper, IDatabaseService databaseService)
+    public PremiereStoreService(IPremiereScraper premiereScraper, IDatabaseService databaseService, MovieCollectorService movieCollectorService)
     {
         this.premiereScraper = premiereScraper;
         this.databaseService = databaseService;
+        this.movieCollectorService = movieCollectorService;
     }
 
     public async Task<(int Stored, int Failed)> GrabAndStorePremieresAsync(CancellationToken cancellationToken = default)
@@ -48,6 +50,13 @@ public class PremiereStoreService
         }
 
         Console.WriteLine($"[PremiereStoreService] Done. Stored: {stored}. Failed: {failed}.");
+
+        // Collect movie metadata for all premiere movie IDs
+        var premiereMovieIds = allPremieres.Select(p => p.CsfdId).Distinct().ToList();
+        Console.WriteLine($"[PremiereStoreService] Collecting movies for {premiereMovieIds.Count} premiere IDs...");
+        var (fetched, skipped, movieFailed) = await movieCollectorService.CollectMoviesAsync(premiereMovieIds, cancellationToken);
+        Console.WriteLine($"[PremiereStoreService] Movies — Fetched: {fetched}. Skipped: {skipped}. Failed: {movieFailed}.");
+
         return (stored, failed);
     }
 }

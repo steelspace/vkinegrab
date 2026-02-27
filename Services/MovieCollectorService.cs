@@ -22,6 +22,15 @@ public class MovieCollectorService
     public async Task<(int Fetched, int Skipped, int Failed)> CollectMoviesFromSchedulesAsync(IEnumerable<Schedule> schedules, CancellationToken cancellationToken = default)
     {
         var uniqueMovieIds = schedules?.Select(s => s.MovieId).Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+        return await CollectMoviesAsync(uniqueMovieIds, cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches and stores movie metadata for each provided CSFD ID.
+    /// Uses smart refresh logic to avoid unnecessary re-fetches.
+    /// </summary>
+    public async Task<(int Fetched, int Skipped, int Failed)> CollectMoviesAsync(IReadOnlyList<int> movieIds, CancellationToken cancellationToken = default)
+    {
 
         int fetched = 0;
         int skipped = 0;
@@ -33,7 +42,7 @@ public class MovieCollectorService
             CancellationToken = cancellationToken
         };
 
-        await Parallel.ForEachAsync(uniqueMovieIds, parallelOptions, async (movieId, ct) =>
+        await Parallel.ForEachAsync(movieIds, parallelOptions, async (movieId, ct) =>
         {
             try
             {

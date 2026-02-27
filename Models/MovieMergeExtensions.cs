@@ -26,6 +26,7 @@ public static class MovieMergeExtensions
         {
             CsfdId = csfdMovie.Id,
             TmdbId = tmdbMovie?.Id,
+            TmdbTitle = tmdbMovie?.Title,
             ImdbId = csfdMovie.ImdbId,
             
             // Primary text data from CSFD, fallback to TMDB

@@ -31,6 +31,10 @@
         "/^dotnet build$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^dotnet build vkinegrab\\.sln 2>&1 \\| Select-Object -Last 20$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

@@ -209,6 +209,61 @@ if (args.Length > 0 && args[0].Equals("backfill-credits", StringComparison.Ordin
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("backfill-tmdb-titles", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("Backfilling TMDB titles for all movies...");
+    var csfdScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
+    var movies = await databaseService.GetAllMoviesAsync();
+
+    if (movies.Count == 0)
+    {
+        Console.WriteLine("No movies found.");
+        return;
+    }
+
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    foreach (var movie in movies)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(movie.TmdbTitle))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (!movie.TmdbId.HasValue)
+            {
+                skipped++;
+                continue;
+            }
+
+            var tmdb = await csfdScraper.FetchTmdbById(movie.TmdbId.Value);
+            if (tmdb == null || string.IsNullOrWhiteSpace(tmdb.Title))
+            {
+                skipped++;
+                continue;
+            }
+
+            movie.TmdbTitle = tmdb.Title;
+            await databaseService.StoreMovie(movie);
+            updated++;
+            Console.WriteLine($"  ✓ {movie.CsfdId}: {movie.Title ?? "Untitled"} → tmdb_title: {tmdb.Title}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ✗ {movie.CsfdId}: {movie.Title ?? "Untitled"} — {ex.Message}");
+            failed++;
+        }
+    }
+
+    Console.WriteLine($"Done. Updated: {updated}. Skipped: {skipped}. Failed: {failed}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("backfill-origin-codes", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Backfilling origin country codes for all movies...");

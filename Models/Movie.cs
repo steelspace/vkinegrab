@@ -4,6 +4,7 @@ public class Movie
 {
     public int CsfdId { get; set; }
     public int? TmdbId { get; set; }
+    public string? TmdbTitle { get; set; }
     public string? ImdbId { get; set; }
     
     // Primary data (from CSFD, fallback to TMDB)

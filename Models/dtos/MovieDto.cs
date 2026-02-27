@@ -15,6 +15,9 @@ internal class MovieDto
     [BsonElement("tmdb_id")]
     public int? TmdbId { get; set; }
 
+    [BsonElement("tmdb_title")]
+    public string? TmdbTitle { get; set; }
+
     [BsonElement("imdb_id")]
     public string? ImdbId { get; set; }
 
@@ -114,6 +117,7 @@ internal class MovieDto
         {
             CsfdId = CsfdId,
             TmdbId = TmdbId,
+            TmdbTitle = TmdbTitle,
             ImdbId = ImdbId,
             Title = Title,
             OriginalTitle = OriginalTitle,

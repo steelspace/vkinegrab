@@ -50,6 +50,7 @@ public class MovieMergeExtensionsTests
         // IDs
         Assert.Equal(123, merged.CsfdId);
         Assert.Equal(456, merged.TmdbId);
+        Assert.Equal("TMDB Title", merged.TmdbTitle);
         Assert.Equal("tt1234567", merged.ImdbId);
 
         // CSFD text data (primary)
@@ -100,6 +101,7 @@ public class MovieMergeExtensionsTests
         // Assert
         Assert.Equal(789, merged.CsfdId);
         Assert.Null(merged.TmdbId);
+        Assert.Null(merged.TmdbTitle);
         Assert.Equal("Movie Title", merged.Title);
         Assert.Equal("Movie Description", merged.DescriptionCs);
         Assert.Null(merged.DescriptionEn);
@@ -132,6 +134,7 @@ public class MovieMergeExtensionsTests
 
         // Assert
         Assert.Equal("TMDB Fallback Title", merged.Title);
+        Assert.Equal("TMDB Fallback Title", merged.TmdbTitle);
         Assert.Equal("CSFD Desc", merged.DescriptionCs);
         Assert.Equal("TMDB Overview", merged.DescriptionEn);
     }

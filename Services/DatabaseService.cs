@@ -94,6 +94,7 @@ public class DatabaseService : IDatabaseService
         {
             CsfdId = movie.CsfdId,
             TmdbId = movie.TmdbId,
+            TmdbTitle = movie.TmdbTitle,
             ImdbId = movie.ImdbId,
             IsStudentFilm = movie.IsStudentFilm,
             Title = movie.Title,
@@ -133,6 +134,7 @@ public class DatabaseService : IDatabaseService
             var update = Builders<MovieDto>.Update
                 .Set(m => m.CsfdId, storedMovie.CsfdId)
                 .Set(m => m.TmdbId, storedMovie.TmdbId)
+                .Set(m => m.TmdbTitle, storedMovie.TmdbTitle)
                 .Set(m => m.ImdbId, storedMovie.ImdbId)
                 .Set(m => m.Title, storedMovie.Title)
                 .Set(m => m.OriginalTitle, storedMovie.OriginalTitle)

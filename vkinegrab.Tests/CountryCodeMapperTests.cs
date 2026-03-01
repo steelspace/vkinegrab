@@ -54,4 +54,34 @@ public class CountryCodeMapperTests
 
         Assert.Equal(new[] { "SG", "NP", "ID", "UG" }, mapped);
     }
+
+    [Fact]
+    public void MapToIsoAlpha2_DistinguishesCzechHistoricalEntities()
+    {
+        var input = new[] { "Česko", "Československo", "Protektorát Čechy a Morava" };
+
+        var mapped = CountryCodeMapper.MapToIsoAlpha2(input);
+
+        Assert.Equal(new[] { "CZ", "CS", "XM" }, mapped);
+    }
+
+    [Fact]
+    public void MapToIsoAlpha2_DistinguishesGermanHistoricalEntities()
+    {
+        var input = new[] { "Germany", "Německá říše", "Third Reich", "German Reich" };
+
+        var mapped = CountryCodeMapper.MapToIsoAlpha2(input);
+
+        Assert.Equal(new[] { "DE", "XR" }, mapped);
+    }
+
+    [Fact]
+    public void MapToIsoAlpha2_MapsEnglishProtectorateAliases()
+    {
+        var input = new[] { "Protectorate of Bohemia and Moravia", "Bohemia and Moravia" };
+
+        var mapped = CountryCodeMapper.MapToIsoAlpha2(input);
+
+        Assert.Equal(new[] { "XM" }, mapped);
+    }
 }

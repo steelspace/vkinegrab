@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet user-secrets list --project \"c:/pdev/vkinegrab\")"
+      "Bash(dotnet user-secrets list --project \"c:/pdev/vkinegrab\")",
+      "Bash(dotnet test vkinegrab.Tests --filter \"CountryCodeMapper\" --no-build)",
+      "Bash(dotnet test vkinegrab.Tests --filter \"CountryCodeMapper\")",
+      "Bash(mongosh \"mongodb://localhost:27017/movies\" --quiet --eval \"db.movies.distinct\\(''origin''\\).sort\\(\\)\")",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/petrvalach/Library/**)",
+      "Bash(cat /Volumes/External/Code/vkinegrab/vkinegrab/appsettings*.json)",
+      "Bash(dotnet user-secrets list)",
+      "Bash(npx mongosh --version)",
+      "Bash(brew list mongodb-community)"
     ]
   }
 }

@@ -1,5 +1,4 @@
 using HtmlAgilityPack;
-using System.Net;
 using System.Text.RegularExpressions;
 using vkinegrab.Models;
 using vkinegrab.Services;
@@ -10,18 +9,18 @@ namespace vkinegrab.Services.Csfd;
 
 public class CsfdScraper : ICsfdScraper
 {
-    private readonly IHttpClientFactory httpClientFactory;
+    private readonly IHtmlFetcher htmlFetcher;
     private readonly ImdbResolver imdbResolver;
     private readonly TmdbResolver tmdbResolver;
     private static readonly Regex OriginSplitRegex = new("[/·•–—|&]", RegexOptions.Compiled);
 
-    public CsfdScraper(IHttpClientFactory httpClientFactory, string tmdbBearerToken)
+    public CsfdScraper(IHtmlFetcher htmlFetcher, IHttpClientFactory httpClientFactory, string tmdbBearerToken)
     {
-        this.httpClientFactory = httpClientFactory;
-        
+        this.htmlFetcher = htmlFetcher;
+
         var csfdClient = httpClientFactory.CreateClient("Csfd");
         imdbResolver = new ImdbResolver(csfdClient);
-        
+
         var tmdbClient = httpClientFactory.CreateClient("Tmdb");
         tmdbResolver = new TmdbResolver(tmdbClient, tmdbBearerToken);
     }
@@ -36,8 +35,7 @@ public class CsfdScraper : ICsfdScraper
     public async Task<CsfdMovie> ScrapeMovie(string url, bool resolveImdb = true)
     {
         Console.WriteLine($"Downloading: {url}");
-        var client = httpClientFactory.CreateClient("Csfd");
-        var html = await client.GetStringAsync(url);
+        var html = await htmlFetcher.FetchAsync(new Uri(url));
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -173,19 +171,16 @@ public class CsfdScraper : ICsfdScraper
     public async Task<Venue> ScrapeVenue(string url)
     {
         Console.WriteLine($"Downloading venue: {url}");
-
-        var client = httpClientFactory.CreateClient("Csfd");
-        // Use SendAsync to capture the final request URI after redirects so we store the canonical URL
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var response = await client.SendAsync(request);
-        var finalUri = response.RequestMessage?.RequestUri?.ToString();
-        var html = await response.Content.ReadAsStringAsync();
+        var html = await htmlFetcher.FetchAsync(new Uri(url));
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
         var venue = new Venue();
-        venue.DetailUrl = !string.IsNullOrWhiteSpace(finalUri) ? finalUri : url;
+        // Use canonical link if present, otherwise fall back to the requested URL
+        var canonicalNode = doc.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+        var canonicalUrl = canonicalNode?.GetAttributeValue("href", null);
+        venue.DetailUrl = !string.IsNullOrWhiteSpace(canonicalUrl) ? canonicalUrl : url;
 
         // Name - prefer an H1 or H2
         var titleNode = doc.DocumentNode.SelectSingleNode("//h1") ?? doc.DocumentNode.SelectSingleNode("//h2") ?? doc.DocumentNode.SelectSingleNode("//title");

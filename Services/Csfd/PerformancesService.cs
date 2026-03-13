@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Net;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using vkinegrab.Models;
@@ -16,20 +15,15 @@ public class PerformancesService : IPerformancesService
     private static readonly Regex TimeRegex = new("\\b\\d{1,2}:\\d{2}\\b", RegexOptions.Compiled);
     private static readonly string[] TimeFormats = new[] { "H:mm", "HH:mm" };
 
-    private readonly IHttpClientFactory httpClientFactory;
+    private readonly IHtmlFetcher htmlFetcher;
     private readonly Uri baseUri;
 
     private readonly ICsfdRowParser rowParser;
 
-    public PerformancesService(IHttpClientFactory httpClientFactory, Uri? baseUri = null)
-        : this(new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()), httpClientFactory, baseUri)
-    {
-    }
-
-    public PerformancesService(ICsfdRowParser rowParser, IHttpClientFactory httpClientFactory, Uri? baseUri = null)
+    public PerformancesService(ICsfdRowParser rowParser, IHtmlFetcher htmlFetcher, Uri? baseUri = null)
     {
         this.rowParser = rowParser ?? throw new ArgumentNullException(nameof(rowParser));
-        this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        this.htmlFetcher = htmlFetcher ?? throw new ArgumentNullException(nameof(htmlFetcher));
         this.baseUri = baseUri ?? DefaultBaseUri;
     }
 
@@ -56,25 +50,17 @@ public class PerformancesService : IPerformancesService
         var html = await FetchHtml(requestUri, cancellationToken).ConfigureAwait(false);
         
         Console.WriteLine($"[PerformancesService] Downloaded {html.Length:N0} bytes of HTML");
-        
         return ParseSchedulesAndVenues(html, requestUri);
     }
 
     private async Task<string> FetchHtml(Uri requestUri, CancellationToken cancellationToken)
     {
-        var client = httpClientFactory.CreateClient("Csfd");
         if (!requestUri.IsAbsoluteUri)
         {
-            requestUri = new Uri(client.BaseAddress ?? baseUri, requestUri);
+            requestUri = new Uri(baseUri, requestUri);
         }
 
-        var startTime = DateTime.UtcNow;
-        var html = await client.GetStringAsync(requestUri, cancellationToken).ConfigureAwait(false);
-        var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-        
-        Console.WriteLine($"[PerformancesService] HTTP request completed in {elapsed:F0}ms");
-        
-        return html;
+        return await htmlFetcher.FetchAsync(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
     private static Uri AppendPeriod(Uri uri, string? period)

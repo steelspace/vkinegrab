@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
-using Microsoft.Extensions.Configuration;
 using vkinegrab.Models;
+using vkinegrab.Services;
 using vkinegrab.Services.Csfd;
 
 namespace vkinegrab;
@@ -11,11 +11,13 @@ public class TestScraper
 {
     private readonly ICsfdScraper scraper;
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly IPerformancesService performancesService;
 
-    public TestScraper(ICsfdScraper scraper, IHttpClientFactory httpClientFactory)
+    public TestScraper(ICsfdScraper scraper, IHttpClientFactory httpClientFactory, IPerformancesService performancesService)
     {
         this.scraper = scraper;
         this.httpClientFactory = httpClientFactory;
+        this.performancesService = performancesService;
     }
 
     public async Task<List<int>> GetMovieIdsFromTvSchedule()
@@ -212,8 +214,7 @@ public class TestScraper
         IReadOnlyList<Schedule> schedules;
         try
         {
-            var service = new PerformancesService(httpClientFactory);
-            schedules = await service.GetSchedules(requestUri, period);
+            schedules = await performancesService.GetSchedules(requestUri, period);
         }
         catch (Exception ex)
         {

@@ -38,9 +38,11 @@ public static class CsfdServiceCollectionExtensions
         services.AddSingleton<IBadgeExtractor, BadgeExtractor>();
         services.AddSingleton<IShowtimeExtractor, ShowtimeExtractor>();
         services.AddSingleton<ICsfdRowParser, CsfdRowParser>();
-        services.AddSingleton<IPerformancesService, PerformancesService>();
-        services.AddSingleton<ICsfdScraper>(sp => 
-            new CsfdScraper(sp.GetRequiredService<IHttpClientFactory>(), tmdbBearerToken));
+        services.AddSingleton<IHtmlFetcher, PlaywrightHtmlFetcher>();
+        services.AddSingleton<IPerformancesService>(sp =>
+            new PerformancesService(sp.GetRequiredService<ICsfdRowParser>(), sp.GetRequiredService<IHtmlFetcher>()));
+        services.AddSingleton<ICsfdScraper>(sp =>
+            new CsfdScraper(sp.GetRequiredService<IHtmlFetcher>(), sp.GetRequiredService<IHttpClientFactory>(), tmdbBearerToken));
         services.AddSingleton<IMovieMetadataOrchestrator, MovieMetadataOrchestrator>();
         services.AddSingleton<SchedulesStoreService>();
         services.AddSingleton<MovieCollectorService>();

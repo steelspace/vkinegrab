@@ -1,12 +1,9 @@
-using System.Net;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Moq;
 using HtmlAgilityPack;
 using vkinegrab.Services.Csfd;
-using System.Net.Http.Headers;
 using vkinegrab.Models;
 using System.Linq;
 
@@ -68,12 +65,10 @@ namespace vkinegrab.Tests
 </html>
 ";
 
-            var handler = new FakeHttpMessageHandler(html);
-            var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
-            var mockFactory = new Mock<IHttpClientFactory>();
-            mockFactory.Setup(f => f.CreateClient("Csfd")).Returns(client);
-
-            var service = new PerformancesService(mockFactory.Object, new System.Uri("https://www.csfd.cz/"));
+            var service = new PerformancesService(
+                new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()),
+                new FakeHtmlFetcher(html),
+                new System.Uri("https://www.csfd.cz/"));
 
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
@@ -107,11 +102,10 @@ namespace vkinegrab.Tests
 </html>
 ";
 
-            var handler2 = new FakeHttpMessageHandler(htmlBadge);
-            var client2 = new HttpClient(handler2) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
-            var mockFactory2 = new Mock<IHttpClientFactory>();
-            mockFactory2.Setup(f => f.CreateClient("Csfd")).Returns(client2);
-            var service2 = new PerformancesService(mockFactory2.Object, new System.Uri("https://www.csfd.cz/"));
+            var service2 = new PerformancesService(
+                new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()),
+                new FakeHtmlFetcher(htmlBadge),
+                new System.Uri("https://www.csfd.cz/"));
 
             var (schedulesBadge, venuesBadge) = await service2.GetSchedulesWithVenues(null, "all");
             // Find schedule for Movie X (id 200)
@@ -131,10 +125,10 @@ namespace vkinegrab.Tests
 
 
             // additional regression test: even if the service is constructed with a file:// base, we should resolve hrefs to https
-            var fileClient = new HttpClient(new FakeHttpMessageHandler(html)) { BaseAddress = new System.Uri("file:///") };
-            var mockFactoryFile = new Mock<IHttpClientFactory>();
-            mockFactoryFile.Setup(f => f.CreateClient("Csfd")).Returns(fileClient);
-            var fileService = new PerformancesService(mockFactoryFile.Object, new System.Uri("file:///"));
+            var fileService = new PerformancesService(
+                new CsfdRowParser(new BadgeExtractor(), new ShowtimeExtractor()),
+                new FakeHtmlFetcher(html),
+                new System.Uri("file:///"));
             var (s2, venues2) = await fileService.GetSchedulesWithVenues(null, "all");
             var v1file = venues2.First(v => v.Id == 1);
 
@@ -188,11 +182,6 @@ namespace vkinegrab.Tests
 </html>
 ";
 
-            var handler = new FakeHttpMessageHandler(html);
-            var client = new HttpClient(handler) { BaseAddress = new System.Uri("https://www.csfd.cz/") };
-            var mockFactory = new Mock<IHttpClientFactory>();
-            mockFactory.Setup(f => f.CreateClient("Csfd")).Returns(client);
-
             var date = DateOnly.FromDateTime(new DateTime(2026, 2, 1));
 
             var perfA = new Performance { MovieId = 300, MovieTitle = "M", VenueId = 1 };
@@ -208,7 +197,7 @@ namespace vkinegrab.Tests
                       .Returns(perfA)
                       .Returns(perfB);
 
-            var service = new PerformancesService(mockParser.Object, mockFactory.Object, new System.Uri("https://www.csfd.cz/"));
+            var service = new PerformancesService(mockParser.Object, new FakeHtmlFetcher(html), new System.Uri("https://www.csfd.cz/"));
             var (schedules, venues) = await service.GetSchedulesWithVenues(null, "all");
 
             var schedule = schedules.First(s => s.MovieId == 300);
@@ -219,24 +208,11 @@ namespace vkinegrab.Tests
             Assert.Equal(new[] { "10:00", "11:00" }, combinedTimes);
         }
 
-        private class FakeHttpMessageHandler : HttpMessageHandler
+        private class FakeHtmlFetcher : IHtmlFetcher
         {
-            private readonly string responseContent;
-
-            public FakeHttpMessageHandler(string responseContent)
-            {
-                this.responseContent = responseContent;
-            }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                var response = new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(responseContent)
-                };
-                response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
-                return Task.FromResult(response);
-            }
+            private readonly string html;
+            public FakeHtmlFetcher(string html) => this.html = html;
+            public Task<string> FetchAsync(Uri uri, CancellationToken cancellationToken = default) => Task.FromResult(html);
         }
     }
 }

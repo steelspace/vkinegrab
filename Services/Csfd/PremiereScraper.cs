@@ -9,11 +9,11 @@ public class PremiereScraper : IPremiereScraper
 {
     private static readonly Regex FilmIdRegex = new("/film/(\\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private readonly IHttpClientFactory httpClientFactory;
+    private readonly IHtmlFetcher htmlFetcher;
 
-    public PremiereScraper(IHttpClientFactory httpClientFactory)
+    public PremiereScraper(IHtmlFetcher htmlFetcher)
     {
-        this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        this.htmlFetcher = htmlFetcher ?? throw new ArgumentNullException(nameof(htmlFetcher));
     }
 
     public async Task<IReadOnlyList<Premiere>> ScrapePremieresAsync(int year, CancellationToken cancellationToken = default)
@@ -21,11 +21,7 @@ public class PremiereScraper : IPremiereScraper
         var url = $"https://www.csfd.cz/kino/prehled/?year={year}";
         Console.WriteLine($"[PremiereScraper] Fetching premieres from: {url}");
 
-        var client = httpClientFactory.CreateClient("Csfd");
-        var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-
-        var html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var html = await htmlFetcher.FetchAsync(new Uri(url), cancellationToken).ConfigureAwait(false);
         Console.WriteLine($"[PremiereScraper] Downloaded {html.Length:N0} bytes");
 
         return ParsePremieres(html, year);

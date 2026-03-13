@@ -62,7 +62,7 @@ if (args.Length > 0 && args[0].Equals("test", StringComparison.OrdinalIgnoreCase
     var testArgs = args.Skip(1).ToArray();
     var localScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
     var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory);
+    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory, serviceProvider.GetRequiredService<IPerformancesService>());
     
     if (testArgs.Length > 0 && testArgs[0].Equals("showtimes", StringComparison.OrdinalIgnoreCase))
     {
@@ -93,7 +93,7 @@ if (args.Length > 0 && args[0].Equals("showtimes", StringComparison.OrdinalIgnor
 {
     var localScraper = serviceProvider.GetRequiredService<ICsfdScraper>();
     var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory);
+    var tester = new vkinegrab.TestScraper(localScraper, httpClientFactory, serviceProvider.GetRequiredService<IPerformancesService>());
     var period = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1]) ? args[1] : "today";
     var pageUrl = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]) ? args[2] : null;
     var maxMovies = args.Length > 3 && int.TryParse(args[3], out var parsedMax) && parsedMax > 0 ? parsedMax : 5;

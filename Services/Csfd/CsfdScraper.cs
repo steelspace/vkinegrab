@@ -39,6 +39,10 @@ public class CsfdScraper : ICsfdScraper
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
+        var pageTitle = doc.DocumentNode.SelectSingleNode("//title")?.InnerText?.Trim() ?? string.Empty;
+        if (IsBotChallengePage(pageTitle))
+            throw new InvalidOperationException($"Bot challenge page returned for {url} (title: '{pageTitle}')");
+
         var movie = new CsfdMovie();
         movie.Id = ExtractIdFromUrl(url);
         var mainNode = doc.DocumentNode;
@@ -175,6 +179,10 @@ public class CsfdScraper : ICsfdScraper
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
+
+        var pageTitle = doc.DocumentNode.SelectSingleNode("//title")?.InnerText?.Trim() ?? string.Empty;
+        if (IsBotChallengePage(pageTitle))
+            throw new InvalidOperationException($"Bot challenge page returned for {url} (title: '{pageTitle}')");
 
         var venue = new Venue();
         // Use canonical link if present, otherwise fall back to the requested URL
@@ -347,5 +355,11 @@ public class CsfdScraper : ICsfdScraper
             return id;
         }
         return 0;
+    }
+
+    private static bool IsBotChallengePage(string title)
+    {
+        var lower = title.ToLowerInvariant();
+        return lower.Contains("making sure") || lower.Contains("oh noes") || lower.Contains("checking");
     }
 }

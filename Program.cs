@@ -509,6 +509,54 @@ if (args.Length > 0 && args[0].Equals("grab-all", StringComparison.OrdinalIgnore
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("fix-bot-movies", StringComparison.OrdinalIgnoreCase))
+{
+    const string botTitle = "Making sure you're not a bot!";
+    var allMovies = await databaseService.GetAllMoviesAsync();
+    var botMovies = allMovies
+        .Where(m => m.Title == botTitle ||
+                    (m.LocalizedTitles.Count == 1 && m.LocalizedTitles.TryGetValue("Original", out var v) && v == botTitle))
+        .ToList();
+
+    Console.WriteLine($"Found {botMovies.Count} movie(s) with bot-challenge title.");
+
+    if (botMovies.Count == 0)
+    {
+        Console.WriteLine("Nothing to fix.");
+        return;
+    }
+
+    var orchestrator = serviceProvider.GetRequiredService<IMovieMetadataOrchestrator>();
+    int fixedCount = 0, failedCount = 0;
+
+    foreach (var m in botMovies)
+    {
+        Console.WriteLine($"  Re-scraping csfd_id={m.CsfdId} ...");
+        try
+        {
+            var refreshed = await orchestrator.ResolveMovieMetadataAsync(m.CsfdId, existing: null);
+            if (string.IsNullOrWhiteSpace(refreshed.Title) || refreshed.Title == botTitle)
+            {
+                Console.WriteLine($"    ✗ Still got bad title after re-scrape, skipping.");
+                failedCount++;
+                continue;
+            }
+
+            await databaseService.StoreMovie(refreshed);
+            Console.WriteLine($"    ✓ Updated: '{refreshed.Title}'");
+            fixedCount++;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"    ✗ Failed: {ex.Message}");
+            failedCount++;
+        }
+    }
+
+    Console.WriteLine($"Done. Fixed: {fixedCount}. Failed: {failedCount}.");
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("verify-discrepancies", StringComparison.OrdinalIgnoreCase))
 {
     var perfService = serviceProvider.GetRequiredService<IPerformancesService>();

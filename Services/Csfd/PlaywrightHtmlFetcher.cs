@@ -29,8 +29,8 @@ public sealed class PlaywrightHtmlFetcher : IHtmlFetcher, IAsyncDisposable
 
             await page.GotoAsync(uri.ToString(), new PageGotoOptions
             {
-                WaitUntil = WaitUntilState.Load,
-                Timeout = 30_000
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+                Timeout = 60_000
             }).ConfigureAwait(false);
 
             var title = await page.TitleAsync().ConfigureAwait(false);

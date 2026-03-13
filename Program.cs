@@ -7,6 +7,7 @@ using vkinegrab.Services.Csfd;
 
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets("vkinegrab-tmdb-secrets")
+    .AddEnvironmentVariables()
     .Build();
 
 var tmdbBearerToken = configuration["Tmdb:BearerToken"];
@@ -54,6 +55,12 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"✗ MongoDB connection error: {ex.Message}");
+}
+
+if (args.Length > 0 && args[0].Equals("playwright", StringComparison.OrdinalIgnoreCase))
+{
+    var exitCode = Microsoft.Playwright.Program.Main(args.Skip(1).ToArray());
+    return;
 }
 
 // Check if running tests

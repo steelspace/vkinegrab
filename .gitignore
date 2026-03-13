@@ -252,3 +252,5 @@ npm-debug.log
 .yarn/
 .pnp.*
 yarn-error.log
+
+/publish

@@ -53,6 +53,19 @@ public sealed class PlaywrightHtmlFetcher : IHtmlFetcher, IAsyncDisposable
                 }
             }
 
+            // CSFD sometimes redirects /film/ID → /film/ID-slug/hraji/ (cast page).
+            // If that happens, navigate to the /prehled/ sibling to get the main movie page.
+            if (page.Url.EndsWith("/hraji/", StringComparison.OrdinalIgnoreCase))
+            {
+                var overviewUrl = page.Url[..^"/hraji/".Length] + "/prehled/";
+                Console.WriteLine($"[PlaywrightHtmlFetcher] Redirected to cast page, switching to {overviewUrl}");
+                await page.GotoAsync(overviewUrl, new PageGotoOptions
+                {
+                    WaitUntil = WaitUntilState.DOMContentLoaded,
+                    Timeout = 60_000
+                }).ConfigureAwait(false);
+            }
+
             var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
             Console.WriteLine($"[PlaywrightHtmlFetcher] Content ready in {elapsed:F0}ms");
 

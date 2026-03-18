@@ -57,7 +57,14 @@ internal sealed class ImdbMetadataValidator
         var hasYear = !string.IsNullOrWhiteSpace(movie.Year);
         var hasDirectors = movie.Directors != null && movie.Directors.Count > 0;
 
-        // Always fetch metadata so we get the rating, even if there's nothing to validate
+        // No CSFD data to validate against — never match
+        if (!hasYear && !hasDirectors)
+        {
+            Console.WriteLine($"      Validation: Skipping {imdbId} — no CSFD year or directors to validate against");
+            return (false, null);
+        }
+
+        // Always fetch metadata so we get the rating
         var metadata = await FetchTitleMetadata(imdbId);
 
         // Validate title type — reject podcasts, TV series, video games, etc.
@@ -67,38 +74,36 @@ internal sealed class ImdbMetadataValidator
             return (false, null);
         }
 
-        if (!hasYear && !hasDirectors)
-        {
-            return (true, metadata);
-        }
-
         if (metadata == null)
         {
-            Console.WriteLine($"      Validation: No metadata found for {imdbId}, accepting by default");
-            return (true, null);
+            Console.WriteLine($"      Validation: Rejecting {imdbId} — no IMDb metadata available");
+            return (false, null);
         }
 
-        var yearValid = IsYearValid(movie.Year, metadata.Year, searchResultYear);
-        var directorsValid = AreDirectorsValid(movie.Directors, metadata.Directors);
-
-        Console.WriteLine($"      Validation for {imdbId}: TitleType='{metadata.TitleType}', Year={yearValid} (CSFD:{movie.Year} vs IMDb:{metadata.Year}, SearchResult:{searchResultYear}), Directors={directorsValid}");
-
-        if (hasYear && hasDirectors)
+        // Primary: directors match
+        if (hasDirectors)
         {
-            if (yearValid && !directorsValid && metadata.Directors.Count == 0)
+            var directorsValid = AreDirectorsValid(movie.Directors, metadata.Directors);
+            Console.WriteLine($"      Validation for {imdbId}: TitleType='{metadata.TitleType}', Directors={directorsValid}");
+            if (directorsValid)
             {
-                Console.WriteLine($"      Accepting match: Year valid but no IMDb director data (likely HTML fallback)");
                 return (true, metadata);
             }
-            return (yearValid && directorsValid, yearValid && directorsValid ? metadata : null);
         }
 
+        // Fallback: year match
         if (hasYear)
         {
-            return (yearValid, yearValid ? metadata : null);
+            var yearValid = IsYearValid(movie.Year, metadata.Year, searchResultYear);
+            Console.WriteLine($"      Validation for {imdbId}: TitleType='{metadata.TitleType}', Year={yearValid} (CSFD:{movie.Year} vs IMDb:{metadata.Year}, SearchResult:{searchResultYear})");
+            if (yearValid)
+            {
+                return (true, metadata);
+            }
         }
 
-        return (directorsValid, directorsValid ? metadata : null);
+        Console.WriteLine($"      Validation for {imdbId}: Rejected — neither directors nor year matched");
+        return (false, null);
     }
 
     /// <summary>

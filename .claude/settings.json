@@ -9,7 +9,8 @@
       "Bash(dotnet build \"$PROJ\" -v normal)",
       "Read(//c/Users/PetrValach/AppData/Local/Temp/**)",
       "Bash(dotnet build)",
-      "Bash(dotnet run --no-build)"
+      "Bash(dotnet run --no-build)",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"systemctl status vkinegrab-grab.service; journalctl -u vkinegrab-grab.service --since ''2026-03-23 00:00'' --no-pager\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\PetrValach\\AppData\\Local\\Temp\\tmdb_verify\\bin",

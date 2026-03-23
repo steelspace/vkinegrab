@@ -22,6 +22,7 @@ public sealed class PlaywrightHtmlFetcher : IHtmlFetcher, IAsyncDisposable
         await EnsureContextAsync(cancellationToken).ConfigureAwait(false);
 
         var page = await context!.NewPageAsync().ConfigureAwait(false);
+        page.SetDefaultTimeout(60_000);
         try
         {
             Console.WriteLine($"[PlaywrightHtmlFetcher] Navigating to {uri}");

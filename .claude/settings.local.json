@@ -10,7 +10,19 @@
       "Bash(cat /Volumes/External/Code/vkinegrab/vkinegrab/appsettings*.json)",
       "Bash(dotnet user-secrets list)",
       "Bash(npx mongosh --version)",
-      "Bash(brew list mongodb-community)"
+      "Bash(brew list mongodb-community)",
+      "WebSearch",
+      "WebFetch(domain:kinomaniak.cz)",
+      "WebFetch(domain:www.praguewise.com)",
+      "WebFetch(domain:cinestar.cz)",
+      "WebFetch(domain:www.cinemacity.cz)",
+      "WebFetch(domain:www.kinosvetozor.cz)",
+      "WebFetch(domain:kinolucerna.cz)",
+      "WebFetch(domain:biooko.net)",
+      "WebFetch(domain:www.mat.cz)",
+      "WebFetch(domain:nfa.cz)",
+      "WebFetch(domain:www.kinoaero.cz)",
+      "WebFetch(domain:www.kinoatlaspraha.cz)"
     ]
   }
 }

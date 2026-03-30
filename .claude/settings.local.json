@@ -34,7 +34,14 @@
       "WebFetch(domain:www.evald.cz)",
       "WebFetch(domain:www.modranskybiograf.cz)",
       "WebFetch(domain:www.kinopritomnost.cz)",
-      "WebFetch(domain:cinemacity.cz)"
+      "WebFetch(domain:cinemacity.cz)",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"journalctl -u vkinegrab-grab.service --since ''2026-03-30 00:00:00'' --no-pager\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"systemctl cat vkinegrab-grab.timer\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"systemctl is-active vkinegrab-grab.timer && systemctl is-enabled vkinegrab-grab.timer\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"date && systemctl status vkinegrab-grab.timer --no-pager\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"systemctl status vkinegrab-grab.service --no-pager\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"sudo systemctl restart vkinegrab-grab.service && sleep 3 && systemctl status vkinegrab-grab.service --no-pager | head -20\")",
+      "Bash(ssh -i ~/.ssh/oracle_vm ubuntu@129.159.13.201 \"systemctl status vkinegrab-grab.service --no-pager | head -20\")"
     ]
   }
 }

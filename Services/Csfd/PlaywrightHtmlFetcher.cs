@@ -75,7 +75,14 @@ public sealed class PlaywrightHtmlFetcher : IHtmlFetcher, IAsyncDisposable
         }
         finally
         {
-            await page.CloseAsync().ConfigureAwait(false);
+            try
+            {
+                await page.CloseAsync().WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            }
+            catch
+            {
+                // CloseAsync can hang indefinitely if the renderer crashes; abandon it.
+            }
         }
     }
 

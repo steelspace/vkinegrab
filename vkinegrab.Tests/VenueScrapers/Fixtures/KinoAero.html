@@ -1,0 +1,115 @@
+<!-- Fixture: Kino Aero / JSON-LD Event platform (canonical representative sample)
+     Used by: KinoAeroScraper, BioOkoScraper, KinoSvetozorScraper, KinoLucernaScraper, KinoPritomnostScraper
+     Refresh: curl -s -A "Mozilla/5.0" https://www.kinoaero.cz/en > KinoAero.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Kino Aero - programme</title></head>
+<body>
+
+<!-- JSON-LD Event blocks — one per screening -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "They Will Kill You",
+  "director": "Kirill Sokolov",
+  "duration": "PT1H34M",
+  "inLanguage": "en",
+  "startDate": "2026-03-30T18:15:00+02:00",
+  "endDate":   "2026-03-30T19:49:00+02:00",
+  "location":  { "@type": "Place", "name": "Aero" },
+  "url": "https://www.kinoaero.cz/en?projection=11001",
+  "eventStatus": "EventScheduled",
+  "offers": {
+    "@type": "Offer",
+    "price": "180",
+    "priceCurrency": "CZK",
+    "availability": "https://schema.org/InStock",
+    "url": "https://www.kinoaero.cz/en?projection=11001"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "The Fall",
+  "director": "Jonathan Glazer",
+  "duration": "PT1H45M",
+  "inLanguage": "en",
+  "startDate": "2026-03-30T20:30:00+02:00",
+  "endDate":   "2026-03-30T22:15:00+02:00",
+  "location":  { "@type": "Place", "name": "Aero" },
+  "url": "https://www.kinoaero.cz/en?projection=11002",
+  "eventStatus": "EventScheduled",
+  "offers": {
+    "@type": "Offer",
+    "price": "190",
+    "priceCurrency": "CZK",
+    "availability": "https://schema.org/InStock",
+    "url": "https://www.kinoaero.cz/en?projection=11002"
+  }
+}
+</script>
+
+<!-- Second day: same film twice (two showtimes should merge under one Schedule) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "Grace",
+  "director": "Paul Verhoeven",
+  "duration": "PT1H30M",
+  "inLanguage": "en",
+  "startDate": "2026-03-31T15:00:00+02:00",
+  "endDate":   "2026-03-31T16:30:00+02:00",
+  "location":  { "@type": "Place", "name": "Aero" },
+  "url": "https://www.kinoaero.cz/en?projection=11003",
+  "eventStatus": "EventScheduled",
+  "offers": {
+    "@type": "Offer",
+    "price": "90",
+    "priceCurrency": "CZK",
+    "url": "https://www.kinoaero.cz/en?projection=11003"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": "Grace",
+  "director": "Paul Verhoeven",
+  "duration": "PT1H30M",
+  "inLanguage": "en",
+  "startDate": "2026-03-31T18:00:00+02:00",
+  "endDate":   "2026-03-31T19:30:00+02:00",
+  "location":  { "@type": "Place", "name": "Aero" },
+  "url": "https://www.kinoaero.cz/en?projection=11004",
+  "eventStatus": "EventScheduled",
+  "offers": {
+    "@type": "Offer",
+    "price": "180",
+    "priceCurrency": "CZK",
+    "url": "https://www.kinoaero.cz/en?projection=11004"
+  }
+}
+</script>
+
+<!-- Navigation anchors used by the platform (not parsed, for reference) -->
+<a href="#program-day-30-03-2026">Today</a>
+<a href="#program-day-31-03-2026">Tomorrow</a>
+
+<div id="program-day-30-03-2026">
+  <p>18:15 They Will Kill You ENG 180 Kč</p>
+  <p>20:30 The Fall ENG Legends 190 Kč</p>
+</div>
+<div id="program-day-31-03-2026">
+  <p>15:00 Grace Senior 90 Kč</p>
+  <p>18:00 Grace ENG 180 Kč</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,57 @@
+{
+  "body": {
+    "films": [
+      {
+        "id": "0000014793AA",
+        "name": "Wuthering Heights",
+        "length": 136,
+        "posterLink": "https://www.cinemacity.cz/xmedia-cw/repo/feats/movies/0000014793AA-2D.jpg",
+        "videoLink": null,
+        "link": "https://www.cinemacity.cz/cz/film/0000014793AA/wuthering-heights"
+      },
+      {
+        "id": "0000014800AA",
+        "name": "Super Mario galaktický film",
+        "length": 101,
+        "posterLink": "https://www.cinemacity.cz/xmedia-cw/repo/feats/movies/0000014800AA-2D.jpg",
+        "videoLink": null,
+        "link": "https://www.cinemacity.cz/cz/film/0000014800AA/super-mario-galakticky-film"
+      }
+    ],
+    "events": [
+      {
+        "id": "0000014793AA20260330T153000",
+        "filmId": "0000014793AA",
+        "cinemaId": "1033",
+        "name": "Wuthering Heights",
+        "eventDateTime": "2026-03-30T15:30:00",
+        "bookingLink": "https://www.cinemacity.cz/cz/booking-router/tt/purchase?cinema=1033&film=0000014793AA&date=2026-03-30&time=1530",
+        "soldOut": false,
+        "auditorium": "Hall 3",
+        "bookingType": "TIX"
+      },
+      {
+        "id": "0000014793AA20260330T183000",
+        "filmId": "0000014793AA",
+        "cinemaId": "1033",
+        "name": "Wuthering Heights",
+        "eventDateTime": "2026-03-30T18:30:00",
+        "bookingLink": "https://www.cinemacity.cz/cz/booking-router/tt/purchase?cinema=1033&film=0000014793AA&date=2026-03-30&time=1830",
+        "soldOut": false,
+        "auditorium": "Hall 5 IMAX",
+        "bookingType": "TIX"
+      },
+      {
+        "id": "0000014800AA20260330T140000",
+        "filmId": "0000014800AA",
+        "cinemaId": "1033",
+        "name": "Super Mario galaktický film",
+        "eventDateTime": "2026-03-30T14:00:00",
+        "bookingLink": "https://www.cinemacity.cz/cz/booking-router/tt/purchase?cinema=1033&film=0000014800AA&date=2026-03-30&time=1400",
+        "soldOut": true,
+        "auditorium": "Hall 1",
+        "bookingType": "TIX"
+      }
+    ]
+  }
+}

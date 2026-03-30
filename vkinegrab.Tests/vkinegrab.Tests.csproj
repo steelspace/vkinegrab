@@ -25,4 +25,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copy fixture files to test output directory so tests can load them via AppContext.BaseDirectory -->
+    <None Update="VenueScrapers\Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

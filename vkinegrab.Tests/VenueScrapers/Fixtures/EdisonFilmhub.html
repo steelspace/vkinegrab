@@ -1,0 +1,69 @@
+<!-- Fixture: Edison Filmhub — JSON-LD variant where startDate is an array and endDate is date-only
+     Refresh: curl -s -A "Mozilla/5.0" https://edisonfilmhub.cz/en/programme > EdisonFilmhub.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Edison Filmhub — programme</title></head>
+<body>
+
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "Event",
+  "name": "Mother",
+  "performer": "Noomi Rapace, Sylvia Hoeks",
+  "organizer": { "name": "EDISON FILMHUB", "url": "https://edisonfilmhub.cz/" },
+  "eventAttendanceMode": "OfflineEventAttendanceMode",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "startDate": ["2026-03-31T14:00"],
+  "endDate":   ["2026-04-01"],
+  "description": "EN, Sub. CZ",
+  "url": "https://edisonfilmhub.cz/filmy/matka",
+  "offers": {
+    "@type": "Offer",
+    "price": "100",
+    "priceCurrency": "KČ",
+    "url": "https://edisonfilmhub.cz/program",
+    "availability": "https://schema.org/InStock"
+  },
+  "location": {
+    "@type": "Place",
+    "name": "EDISON FILMHUB",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Jeruzalémská 1321/2",
+      "addressLocality": "Praha",
+      "postalCode": "110 00"
+    }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "Event",
+  "name": "Pillion",
+  "performer": "Alexander Skarsgård, Harry Melling",
+  "organizer": { "name": "EDISON FILMHUB", "url": "https://edisonfilmhub.cz/" },
+  "eventAttendanceMode": "OfflineEventAttendanceMode",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "startDate": ["2026-03-31T16:30"],
+  "endDate":   ["2026-04-01"],
+  "description": "EN, Sub. CZ",
+  "url": "https://edisonfilmhub.cz/filmy/pillion",
+  "offers": {
+    "@type": "Offer",
+    "price": "185",
+    "priceCurrency": "KČ",
+    "url": "https://edisonfilmhub.cz/program",
+    "availability": "https://schema.org/InStock"
+  },
+  "location": {
+    "@type": "Place",
+    "name": "EDISON FILMHUB"
+  }
+}
+</script>
+
+</body>
+</html>

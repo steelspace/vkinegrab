@@ -22,7 +22,19 @@
       "WebFetch(domain:www.mat.cz)",
       "WebFetch(domain:nfa.cz)",
       "WebFetch(domain:www.kinoaero.cz)",
-      "WebFetch(domain:www.kinoatlaspraha.cz)"
+      "WebFetch(domain:www.kinoatlaspraha.cz)",
+      "WebFetch(domain:www.premierecinemas.cz)",
+      "WebFetch(domain:dlabacov.cz)",
+      "WebFetch(domain:edisonfilmhub.cz)",
+      "WebFetch(domain:kino35.ifp.cz)",
+      "WebFetch(domain:kino.prostorbalt.cz)",
+      "WebFetch(domain:kinokavalirka.cz)",
+      "WebFetch(domain:kinopilotu.cz)",
+      "WebFetch(domain:www.kinoradotin.cz)",
+      "WebFetch(domain:www.evald.cz)",
+      "WebFetch(domain:www.modranskybiograf.cz)",
+      "WebFetch(domain:www.kinopritomnost.cz)",
+      "WebFetch(domain:cinemacity.cz)"
     ]
   }
 }
